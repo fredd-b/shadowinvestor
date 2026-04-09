@@ -265,14 +265,22 @@ def api() -> None:
 @click.option("--port", default=None, type=int, help="Port (default from env)")
 @click.option("--reload/--no-reload", default=False, help="Auto-reload on file change")
 def api_run(host: str | None, port: int | None, reload: bool) -> None:
-    """Start the FastAPI server (uvicorn)."""
+    """Start the FastAPI server (uvicorn).
+
+    Port resolution priority: --port flag > $PORT env (Railway) > $API_PORT env > 8000.
+    Host: --host flag > $API_HOST env > 0.0.0.0.
+    """
+    import os
     import uvicorn
     from fesi.config import get_settings
     s = get_settings()
+    actual_port = port or int(os.environ.get("PORT") or s.api_port)
+    actual_host = host or s.api_host
+    click.echo(f"FESI API starting on {actual_host}:{actual_port}")
     uvicorn.run(
         "fesi.api.main:app",
-        host=host or s.api_host,
-        port=port or s.api_port,
+        host=actual_host,
+        port=actual_port,
         reload=reload,
     )
 

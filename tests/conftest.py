@@ -8,12 +8,11 @@ from __future__ import annotations
 
 import importlib
 import json
-import os
-import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from sqlalchemy import text
 
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -21,15 +20,17 @@ PROJECT_ROOT = Path(__file__).parent.parent
 
 @pytest.fixture
 def tmp_db(tmp_path, monkeypatch):
-    """Create a fresh SQLite DB, apply migrations, load watchlist. Returns the path."""
+    """Create a fresh SQLite DB, apply schema, load watchlist. Returns the path."""
     db_file = tmp_path / "fesi_test.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_file}")
 
-    # Reload config + db modules so they pick up the new env var
+    # Reload config + db so they pick up the new env var, and reset the
+    # cached engine so a new one is built against the new URL.
     import fesi.config
     import fesi.db
     importlib.reload(fesi.config)
     importlib.reload(fesi.db)
+    fesi.db.reset_engine()
 
     from fesi.db import connect, init_db
     from fesi.store.tickers import load_watchlist_to_db
@@ -38,12 +39,14 @@ def tmp_db(tmp_path, monkeypatch):
     with connect() as conn:
         load_watchlist_to_db(conn)
 
-    return db_file
+    yield db_file
+
+    fesi.db.reset_engine()
 
 
 @pytest.fixture
 def db_conn(tmp_db):
-    """A live connection to the test DB. Auto-closed."""
+    """A live SQLAlchemy Connection to the test DB. Auto-committed."""
     from fesi.db import connect
     with connect() as conn:
         yield conn
@@ -84,7 +87,7 @@ def make_raw_item():
 
 @pytest.fixture
 def insert_raw_item_dict(db_conn):
-    """Insert a raw_item directly (bypassing the IngestAdapter type)."""
+    """Insert a raw_item directly via SQL (bypassing IngestAdapter type)."""
     counter = {"i": 0}
 
     def _insert(
@@ -97,25 +100,29 @@ def insert_raw_item_dict(db_conn):
         counter["i"] += 1
         now = datetime.now(timezone.utc)
         url = url or f"https://example.com/{counter['i']}"
-        cursor = db_conn.execute(
-            """
-            INSERT INTO raw_items (
-                source, source_id, fetched_at, published_at,
-                url, title, raw_payload, content_hash
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                source,
-                f"raw-{counter['i']}",
-                now.isoformat(),
-                now.isoformat(),
-                url,
-                title,
-                json.dumps({"title": title, "description": body, "url": url}),
-                f"hash-{counter['i']}",
-            ),
+        result = db_conn.execute(
+            text("""
+                INSERT INTO raw_items (
+                    source, source_id, fetched_at, published_at,
+                    url, title, raw_payload, content_hash
+                )
+                VALUES (
+                    :source, :source_id, :fetched_at, :published_at,
+                    :url, :title, :raw_payload, :content_hash
+                )
+                RETURNING id
+            """),
+            {
+                "source": source,
+                "source_id": f"raw-{counter['i']}",
+                "fetched_at": now.isoformat(),
+                "published_at": now.isoformat(),
+                "url": url,
+                "title": title,
+                "raw_payload": json.dumps({"title": title, "description": body, "url": url}),
+                "content_hash": f"hash-{counter['i']}",
+            },
         )
-        return cursor.lastrowid
+        return result.scalar_one()
 
     return _insert

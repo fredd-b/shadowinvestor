@@ -18,7 +18,7 @@ to 'shadow' so live trading never happens by accident.
 """
 from __future__ import annotations
 
-import sqlite3
+from sqlalchemy.engine import Connection
 
 from fesi.config import get_settings, load_risk
 from fesi.decision.risk_gates import check_all
@@ -34,7 +34,7 @@ MIN_CONVICTION_TO_ACT = 12.0
 WATCHLIST_CONVICTION_DROP = 2.0
 
 
-def make_decision(conn: sqlite3.Connection, signal: dict) -> dict:
+def make_decision(conn: Connection, signal: dict) -> dict:
     """Decide buy/no_buy for a signal, write the decision row, return summary."""
     settings = get_settings()
     risk = load_risk()

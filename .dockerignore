@@ -1,0 +1,51 @@
+# Build context excludes — keep the Docker image small
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project runtime
+.env
+.env.local
+data/*.db
+data/*.sqlite*
+logs/
+models/
+
+# Tests + scripts (don't ship to prod)
+tests/
+scripts/
+
+# Docs & build artifacts
+build/
+dist/
+
+# Web frontend (built and deployed separately on Vercel)
+web/
+
+# Notebooks
+.ipynb_checkpoints/
+*.ipynb

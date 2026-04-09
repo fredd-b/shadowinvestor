@@ -1,8 +1,11 @@
 """Prices store — yfinance OHLCV cache."""
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import text
+from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 
 from fesi.logging import get_logger
 from fesi.store.tickers import get_ticker_by_symbol
@@ -11,7 +14,7 @@ log = get_logger(__name__)
 
 
 def insert_price_bar(
-    conn: sqlite3.Connection,
+    conn: Connection,
     *,
     ticker_id: int,
     date: str,
@@ -23,58 +26,82 @@ def insert_price_bar(
     source: str = "yfinance",
 ) -> bool:
     """Insert one OHLCV bar. Returns True if inserted, False if duplicate."""
-    try:
-        conn.execute(
-            """
-            INSERT INTO prices (ticker_id, date, open, high, low, close, volume, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (ticker_id, date, open_, high, low, close, volume, source),
-        )
-        return True
-    except sqlite3.IntegrityError:
-        return False
+    with conn.begin_nested():
+        try:
+            conn.execute(
+                text("""
+                    INSERT INTO prices (
+                        ticker_id, date, open, high, low, close, volume, source
+                    )
+                    VALUES (
+                        :ticker_id, :date, :open, :high, :low, :close, :volume, :source
+                    )
+                """),
+                {
+                    "ticker_id": ticker_id,
+                    "date": date,
+                    "open": open_,
+                    "high": high,
+                    "low": low,
+                    "close": close,
+                    "volume": volume,
+                    "source": source,
+                },
+            )
+            return True
+        except IntegrityError:
+            return False
 
 
-def get_latest_price(conn: sqlite3.Connection, ticker_id: int) -> dict | None:
+def get_latest_price(conn: Connection, ticker_id: int) -> dict | None:
     row = conn.execute(
-        "SELECT * FROM prices WHERE ticker_id = ? ORDER BY date DESC LIMIT 1",
-        (ticker_id,),
-    ).fetchone()
+        text("""
+            SELECT * FROM prices
+            WHERE ticker_id = :ticker_id
+            ORDER BY date DESC
+            LIMIT 1
+        """),
+        {"ticker_id": ticker_id},
+    ).mappings().first()
     return dict(row) if row else None
 
 
 def get_price_on_or_after(
-    conn: sqlite3.Connection, ticker_id: int, date: str
+    conn: Connection, ticker_id: int, date: str
 ) -> dict | None:
     row = conn.execute(
-        "SELECT * FROM prices WHERE ticker_id = ? AND date >= ? ORDER BY date ASC LIMIT 1",
-        (ticker_id, date),
-    ).fetchone()
+        text("""
+            SELECT * FROM prices
+            WHERE ticker_id = :ticker_id AND date >= :date
+            ORDER BY date ASC
+            LIMIT 1
+        """),
+        {"ticker_id": ticker_id, "date": date},
+    ).mappings().first()
     return dict(row) if row else None
 
 
 def get_price_history(
-    conn: sqlite3.Connection,
+    conn: Connection,
     ticker_id: int,
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> list[dict]:
-    sql = "SELECT * FROM prices WHERE ticker_id = ?"
-    args: list = [ticker_id]
+    sql = "SELECT * FROM prices WHERE ticker_id = :ticker_id"
+    params: dict = {"ticker_id": ticker_id}
     if start_date:
-        sql += " AND date >= ?"
-        args.append(start_date)
+        sql += " AND date >= :start_date"
+        params["start_date"] = start_date
     if end_date:
-        sql += " AND date <= ?"
-        args.append(end_date)
+        sql += " AND date <= :end_date"
+        params["end_date"] = end_date
     sql += " ORDER BY date ASC"
-    rows = conn.execute(sql, args).fetchall()
+    rows = conn.execute(text(sql), params).mappings().all()
     return [dict(r) for r in rows]
 
 
 def fetch_yfinance_history(
-    conn: sqlite3.Connection,
+    conn: Connection,
     symbol: str,
     *,
     days: int = 90,
@@ -84,8 +111,6 @@ def fetch_yfinance_history(
 
     Uses `yf.Ticker(symbol).history(period=...)` which returns clean
     single-level columns regardless of yfinance version.
-
-    Returns {'inserted': N, 'skipped': N, 'symbol': symbol}.
     """
     import yfinance as yf
 
@@ -94,7 +119,6 @@ def fetch_yfinance_history(
         log.warning("price_fetch_unknown_ticker", symbol=symbol)
         return {"inserted": 0, "skipped": 0, "symbol": symbol, "error": "unknown_ticker"}
 
-    # Pick a yfinance period close to the requested days
     period = "1mo"
     if days > 30:
         period = "3mo"

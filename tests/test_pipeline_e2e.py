@@ -7,7 +7,10 @@ the deterministic fallback classifier (no API key needed).
 from __future__ import annotations
 
 import importlib
+import json
 from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import text
 
 
 def test_e2e_pipeline_with_synthetic_items(tmp_db, monkeypatch):
@@ -29,11 +32,9 @@ def test_e2e_pipeline_with_synthetic_items(tmp_db, monkeypatch):
     from fesi.decision.engine import make_decision
     from fesi.store.prices import insert_price_bar
     from fesi.digest.render import render_digest
-    import json
 
-    # ---- Seed: insert synthetic raw_items via direct SQL ----
+    # ---- Seed: insert price + synthetic raw_items ----
     with connect() as conn:
-        # Add a price for ONC so the decision engine can compute sizing
         onc = get_ticker_by_symbol(conn, "ONC")
         insert_price_bar(
             conn,
@@ -45,31 +46,32 @@ def test_e2e_pipeline_with_synthetic_items(tmp_db, monkeypatch):
         )
 
         now = datetime.now(timezone.utc)
-
         for i, (title, source) in enumerate([
             ("FDA approves BeiGene's Brukinsa for new lymphoma indication", "pr_newswire"),
-            ("FDA approves BeiGene's Brukinsa for new lymphoma indication.", "businesswire"),  # near-dup
+            ("FDA approves BeiGene's Brukinsa for new lymphoma indication.", "businesswire"),
             ("NexGen Energy achieves first production at Rook I uranium mine", "globenewswire"),
             ("Cipher Mining wins long-term AI/HPC hosting contract with named customer", "pr_newswire"),
         ]):
             conn.execute(
-                """
-                INSERT INTO raw_items (
-                    source, source_id, fetched_at, published_at,
-                    url, title, raw_payload, content_hash
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    source,
-                    f"e2e-{i}",
-                    now.isoformat(),
-                    now.isoformat(),
-                    f"https://example.com/{i}",
-                    title,
-                    json.dumps({"description": title, "title": title}),
-                    f"e2e-hash-{i}",
-                ),
+                text("""
+                    INSERT INTO raw_items (
+                        source, source_id, fetched_at, published_at,
+                        url, title, raw_payload, content_hash
+                    )
+                    VALUES (
+                        :source, :sid, :fetched, :pub, :url, :title, :payload, :hash
+                    )
+                """),
+                {
+                    "source": source,
+                    "sid": f"e2e-{i}",
+                    "fetched": now.isoformat(),
+                    "pub": now.isoformat(),
+                    "url": f"https://example.com/{i}",
+                    "title": title,
+                    "payload": json.dumps({"description": title, "title": title}),
+                    "hash": f"e2e-hash-{i}",
+                },
             )
 
     # ---- Run normalize + classify + score + insert signals ----
@@ -81,7 +83,7 @@ def test_e2e_pipeline_with_synthetic_items(tmp_db, monkeypatch):
         assert len(unprocessed) == 4
 
         candidates = normalize(unprocessed)
-        # The two BeiGene items should merge
+        # Two BeiGene items should merge → 3 candidates
         assert len(candidates) == 3
 
         for cand in candidates:
@@ -126,7 +128,7 @@ def test_e2e_pipeline_with_synthetic_items(tmp_db, monkeypatch):
         )
     assert len(signals) == 3
 
-    # The BeiGene merged signal should have feature_source_count == 2
+    # The merged signal should have feature_source_count == 2
     onc_signal = next((s for s in signals if s["ticker_symbol"] == "ONC"), None)
     assert onc_signal is not None
     assert onc_signal["feature_source_count"] == 2
@@ -137,10 +139,9 @@ def test_e2e_pipeline_with_synthetic_items(tmp_db, monkeypatch):
         for s in signals:
             make_decision(conn, s)
 
-        # All signals should have at least one decision
         decision_rows = conn.execute(
-            "SELECT signal_id, action FROM decisions"
-        ).fetchall()
+            text("SELECT signal_id, action FROM decisions")
+        ).mappings().all()
         assert len(decision_rows) >= 3
 
     # ---- Render digest ----
@@ -161,15 +162,12 @@ def test_e2e_pipeline_with_synthetic_items(tmp_db, monkeypatch):
 
 
 def test_e2e_unprocessed_query_excludes_already_signaled(tmp_db, db_conn, insert_raw_item_dict):
-    """After a raw_item is linked to a signal via raw_item_ids, it should not appear in the unprocessed list."""
-    from datetime import datetime, timedelta, timezone
-
+    """After a raw_item is linked to a signal, it should not appear in the unprocessed list."""
     from fesi.store.raw_items import get_unprocessed_raw_items
     from fesi.store.signals import insert_signal
     from fesi.store.tickers import get_ticker_by_symbol
 
     rid = insert_raw_item_dict(title="FDA approves BeiGene drug", body="...")
-    db_conn.commit()
 
     onc = get_ticker_by_symbol(db_conn, "ONC")
     insert_signal(
@@ -188,7 +186,6 @@ def test_e2e_unprocessed_query_excludes_already_signaled(tmp_db, db_conn, insert
         direction="bullish",
         raw_item_ids=[rid],
     )
-    db_conn.commit()
 
     unprocessed = get_unprocessed_raw_items(
         db_conn, since=datetime.now(timezone.utc) - timedelta(hours=24)

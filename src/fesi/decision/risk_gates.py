@@ -5,8 +5,7 @@ final decision is forced to 'no_buy' regardless of conviction.
 """
 from __future__ import annotations
 
-import sqlite3
-from datetime import datetime, timedelta, timezone
+from sqlalchemy.engine import Connection
 
 from fesi.config import RiskConfig
 from fesi.store.decisions import (
@@ -28,7 +27,7 @@ def check_position_size(
 
 
 def check_concurrent_positions(
-    conn: sqlite3.Connection, risk: RiskConfig, mode: str
+    conn: Connection, risk: RiskConfig, mode: str
 ) -> tuple[bool, str]:
     n = count_concurrent_buys(conn, mode)
     if n >= risk.position.max_concurrent_positions:
@@ -40,7 +39,7 @@ def check_concurrent_positions(
 
 
 def check_sector_concentration(
-    conn: sqlite3.Connection,
+    conn: Connection,
     sector: str,
     intended_position_usd: float,
     risk: RiskConfig,
@@ -60,7 +59,7 @@ def check_sector_concentration(
 
 
 def check_circuit_breaker(
-    conn: sqlite3.Connection, risk: RiskConfig, mode: str
+    conn: Connection, risk: RiskConfig, mode: str
 ) -> tuple[bool, str]:
     """Phase 1 simplification: only enforces monthly deployment cap.
 
@@ -78,7 +77,7 @@ def check_circuit_breaker(
 
 
 def check_all(
-    conn: sqlite3.Connection,
+    conn: Connection,
     *,
     sector: str,
     intended_position_usd: float,

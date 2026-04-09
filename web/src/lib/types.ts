@@ -1,0 +1,130 @@
+// TypeScript types mirroring src/fesi/api/schemas.py
+// Keep in sync when the API schemas change.
+
+export type Signal = {
+  id: number;
+  created_at: string;
+  event_at: string;
+  ticker_id: number | null;
+  ticker_symbol: string | null;
+  ticker_exchange: string | null;
+  ticker_name: string | null;
+  catalyst_type: string;
+  sector: string;
+  headline: string;
+  summary: string;
+  economics_summary: string | null;
+  impact_score: number;
+  probability_score: number;
+  conviction_score: number;
+  timeframe_bucket: string;
+  direction: string;
+  feature_source_count: number | null;
+  feature_source_diversity: number | null;
+  feature_source_quality_avg: number | null;
+  feature_is_watchlist: number | null;
+  feature_market_cap_bucket: string | null;
+  feature_market_cap_usd: number | null;
+  status: string;
+};
+
+export type Decision = {
+  id: number;
+  signal_id: number;
+  decided_at: string;
+  mode: string;
+  action: string;
+  ticker_symbol: string | null;
+  ticker_exchange: string | null;
+  catalyst_type: string;
+  sector: string;
+  conviction_score: number;
+  headline: string;
+  intended_position_usd: number | null;
+  intended_shares: number | null;
+  intended_entry_price: number | null;
+  intended_stop_loss: number | null;
+  intended_target: number | null;
+  intended_holding_period_days: number | null;
+  rule_triggered: string | null;
+  reasoning: string;
+  confidence: number;
+  passed_position_size_check: number;
+  passed_concurrent_check: number;
+  passed_sector_concentration_check: number;
+  passed_circuit_breaker_check: number;
+};
+
+export type Ticker = {
+  id: number;
+  symbol: string;
+  exchange: string;
+  name: string;
+  sector: string | null;
+  sub_sector: string | null;
+  market_cap_usd: number | null;
+  is_watchlist: number;
+  watchlist_thesis: string | null;
+  alert_min_conviction: number | null;
+};
+
+export type Portfolio = {
+  mode: string;
+  deployed_total_usd: number;
+  deployed_this_month_usd: number;
+  monthly_cap_usd: number;
+  cap_used_pct: number;
+  sector_exposure: Record<string, number>;
+  open_buy_count: number;
+};
+
+export type SourceHealth = {
+  key: string;
+  display_name: string;
+  type: string;
+  cost: string;
+  monthly_usd: number;
+  trust: number;
+  active: boolean;
+  items_total: number;
+  last_fetch: string | null;
+};
+
+export type DigestSummary = {
+  id: number;
+  sent_at: string;
+  scan_window_start: string;
+  scan_window_end: string;
+  signal_count: number;
+  decision_count: number;
+  delivered_via: string;
+};
+
+export type Digest = DigestSummary & {
+  markdown_body: string;
+};
+
+export type PipelineRun = {
+  started_at: string;
+  ended_at: string | null;
+  raw_items_fetched: number;
+  raw_items_inserted: number;
+  raw_items_skipped: number;
+  candidates: number;
+  signals_created: number;
+  decisions_buy: number;
+  decisions_no_buy: number;
+  digest_id: number | null;
+  errors: string[];
+};
+
+export type Status = {
+  version: string;
+  mode: string;
+  environment: string;
+  database: string;
+  timezone: string;
+  has_anthropic: boolean;
+  has_pushover: boolean;
+  has_telegram: boolean;
+};

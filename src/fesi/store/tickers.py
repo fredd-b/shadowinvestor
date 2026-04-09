@@ -1,8 +1,10 @@
 """Tickers store — load watchlist into DB, upsert, lookup by symbol."""
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime, timezone
+
+from sqlalchemy import text
+from sqlalchemy.engine import Connection
 
 from fesi.config import load_watchlist
 from fesi.logging import get_logger
@@ -11,7 +13,7 @@ log = get_logger(__name__)
 
 
 def upsert_ticker(
-    conn: sqlite3.Connection,
+    conn: Connection,
     *,
     symbol: str,
     exchange: str,
@@ -26,80 +28,108 @@ def upsert_ticker(
     """Insert ticker if missing, otherwise update mutable fields. Returns ticker_id."""
     now = datetime.now(timezone.utc).isoformat()
     row = conn.execute(
-        "SELECT id FROM tickers WHERE symbol = ? AND exchange = ?",
-        (symbol, exchange),
-    ).fetchone()
+        text("SELECT id FROM tickers WHERE symbol = :symbol AND exchange = :exchange"),
+        {"symbol": symbol, "exchange": exchange},
+    ).mappings().first()
 
     if row:
         ticker_id = row["id"]
         conn.execute(
-            """
-            UPDATE tickers
-            SET name = ?, sector = ?, sub_sector = ?, is_watchlist = ?,
-                watchlist_thesis = ?, alert_min_conviction = ?,
-                market_cap_usd = COALESCE(?, market_cap_usd)
-            WHERE id = ?
-            """,
-            (
-                name, sector, sub_sector, int(is_watchlist),
-                watchlist_thesis, alert_min_conviction, market_cap_usd, ticker_id,
-            ),
+            text("""
+                UPDATE tickers
+                SET name = :name,
+                    sector = :sector,
+                    sub_sector = :sub_sector,
+                    is_watchlist = :is_watchlist,
+                    watchlist_thesis = :watchlist_thesis,
+                    alert_min_conviction = :alert_min_conviction,
+                    market_cap_usd = COALESCE(:market_cap_usd, market_cap_usd)
+                WHERE id = :id
+            """),
+            {
+                "name": name,
+                "sector": sector,
+                "sub_sector": sub_sector,
+                "is_watchlist": int(is_watchlist),
+                "watchlist_thesis": watchlist_thesis,
+                "alert_min_conviction": alert_min_conviction,
+                "market_cap_usd": market_cap_usd,
+                "id": ticker_id,
+            },
         )
         return ticker_id
 
-    cursor = conn.execute(
-        """
-        INSERT INTO tickers (
-            symbol, exchange, name, sector, sub_sector,
-            is_watchlist, watchlist_thesis, alert_min_conviction,
-            market_cap_usd, added_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            symbol, exchange, name, sector, sub_sector,
-            int(is_watchlist), watchlist_thesis, alert_min_conviction,
-            market_cap_usd, now,
-        ),
+    result = conn.execute(
+        text("""
+            INSERT INTO tickers (
+                symbol, exchange, name, sector, sub_sector,
+                is_watchlist, watchlist_thesis, alert_min_conviction,
+                market_cap_usd, added_at
+            )
+            VALUES (
+                :symbol, :exchange, :name, :sector, :sub_sector,
+                :is_watchlist, :watchlist_thesis, :alert_min_conviction,
+                :market_cap_usd, :added_at
+            )
+            RETURNING id
+        """),
+        {
+            "symbol": symbol,
+            "exchange": exchange,
+            "name": name,
+            "sector": sector,
+            "sub_sector": sub_sector,
+            "is_watchlist": int(is_watchlist),
+            "watchlist_thesis": watchlist_thesis,
+            "alert_min_conviction": alert_min_conviction,
+            "market_cap_usd": market_cap_usd,
+            "added_at": now,
+        },
     )
-    return cursor.lastrowid
+    return result.scalar_one()
 
 
 def get_ticker_by_symbol(
-    conn: sqlite3.Connection, symbol: str, exchange: str | None = None
+    conn: Connection, symbol: str, exchange: str | None = None
 ) -> dict | None:
     if exchange:
         row = conn.execute(
-            "SELECT * FROM tickers WHERE symbol = ? AND exchange = ?",
-            (symbol, exchange),
-        ).fetchone()
+            text("SELECT * FROM tickers WHERE symbol = :symbol AND exchange = :exchange"),
+            {"symbol": symbol, "exchange": exchange},
+        ).mappings().first()
     else:
         row = conn.execute(
-            "SELECT * FROM tickers WHERE symbol = ?", (symbol,)
-        ).fetchone()
+            text("SELECT * FROM tickers WHERE symbol = :symbol"),
+            {"symbol": symbol},
+        ).mappings().first()
     return dict(row) if row else None
 
 
-def get_ticker_by_id(conn: sqlite3.Connection, ticker_id: int) -> dict | None:
-    row = conn.execute("SELECT * FROM tickers WHERE id = ?", (ticker_id,)).fetchone()
+def get_ticker_by_id(conn: Connection, ticker_id: int) -> dict | None:
+    row = conn.execute(
+        text("SELECT * FROM tickers WHERE id = :id"),
+        {"id": ticker_id},
+    ).mappings().first()
     return dict(row) if row else None
 
 
-def list_watchlist_tickers(conn: sqlite3.Connection) -> list[dict]:
+def list_watchlist_tickers(conn: Connection) -> list[dict]:
     rows = conn.execute(
-        "SELECT * FROM tickers WHERE is_watchlist = 1 ORDER BY sector, symbol"
-    ).fetchall()
+        text("SELECT * FROM tickers WHERE is_watchlist = 1 ORDER BY sector, symbol")
+    ).mappings().all()
     return [dict(r) for r in rows]
 
 
-def list_all_tickers(conn: sqlite3.Connection) -> list[dict]:
-    rows = conn.execute("SELECT * FROM tickers ORDER BY symbol").fetchall()
+def list_all_tickers(conn: Connection) -> list[dict]:
+    rows = conn.execute(
+        text("SELECT * FROM tickers ORDER BY symbol")
+    ).mappings().all()
     return [dict(r) for r in rows]
 
 
-def search_tickers_by_text(conn: sqlite3.Connection, text: str) -> list[dict]:
-    """Match a symbol or company name appearing in `text`. For ticker resolution from news."""
-    text_lower = text.lower()
+def search_tickers_by_text(conn: Connection, search_text: str) -> list[dict]:
+    """Match a symbol or company name appearing in `search_text`."""
+    text_lower = search_text.lower()
     candidates = list_all_tickers(conn)
     matches = []
     for t in candidates:
@@ -113,7 +143,7 @@ def search_tickers_by_text(conn: sqlite3.Connection, text: str) -> list[dict]:
     return matches
 
 
-def load_watchlist_to_db(conn: sqlite3.Connection) -> int:
+def load_watchlist_to_db(conn: Connection) -> int:
     """Load all tickers from config/watchlist.yaml into the tickers table."""
     watchlist = load_watchlist()
     count = 0

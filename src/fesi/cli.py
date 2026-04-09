@@ -37,12 +37,14 @@ def cli(log_level: str) -> None:
 
 @cli.command("init-db")
 def init_db_cmd() -> None:
-    """Apply DB migrations and load watchlist."""
-    from fesi.db import connect, get_db_path, init_db
+    """Create all tables (idempotent) and load the watchlist."""
+    from fesi.config import get_settings
+    from fesi.db import connect, init_db
     from fesi.store.tickers import load_watchlist_to_db
 
+    settings = get_settings()
+    click.echo(f"Database: {settings.database_url}")
     result = init_db()
-    click.echo(f"Database: {get_db_path()}")
     click.echo(json.dumps(result, indent=2))
 
     with connect() as conn:
@@ -251,6 +253,28 @@ def schedule_run() -> None:
     """Start the long-running scheduler (5 scans/day in UAE timezone)."""
     from fesi.ops.scheduler import run_forever
     run_forever()
+
+
+@cli.group()
+def api() -> None:
+    """HTTP API commands."""
+
+
+@api.command("run")
+@click.option("--host", default=None, help="Host (default from env)")
+@click.option("--port", default=None, type=int, help="Port (default from env)")
+@click.option("--reload/--no-reload", default=False, help="Auto-reload on file change")
+def api_run(host: str | None, port: int | None, reload: bool) -> None:
+    """Start the FastAPI server (uvicorn)."""
+    import uvicorn
+    from fesi.config import get_settings
+    s = get_settings()
+    uvicorn.run(
+        "fesi.api.main:app",
+        host=host or s.api_host,
+        port=port or s.api_port,
+        reload=reload,
+    )
 
 
 @cli.group()

@@ -1,9 +1,6 @@
 """Smoke tests — sanity that the package is wired up and configs are valid."""
 from __future__ import annotations
 
-import sqlite3
-from pathlib import Path
-
 
 def test_import_package():
     import fesi
@@ -15,6 +12,7 @@ def test_import_submodules():
     import fesi.config  # noqa: F401
     import fesi.db  # noqa: F401
     import fesi.ingest.base  # noqa: F401
+    import fesi.store.schema  # noqa: F401
 
 
 def test_load_all_configs():
@@ -54,34 +52,25 @@ def test_load_all_configs():
     assert "NXE" in symbols       # NexGen uranium
 
     # Sources — at least the free regulatory ones must be active
-    active = [s for s in cfg["sources"].values() if s.active]
     active_keys = {k for k, s in cfg["sources"].items() if s.active}
-    assert len(active) >= 3
     assert "fda_openfda" in active_keys
     assert "sec_edgar" in active_keys
     assert "clinicaltrials_gov" in active_keys
 
 
-def test_initial_migration_applies_cleanly(tmp_path):
-    """The initial schema SQL file should apply cleanly to a fresh DB."""
-    project_root = Path(__file__).parent.parent
-    sql_path = project_root / "src" / "fesi" / "migrations" / "001_initial_schema.sql"
-    assert sql_path.exists(), f"missing migration file: {sql_path}"
-    sql = sql_path.read_text()
+def test_init_db_creates_all_tables(tmp_db):
+    """init_db() should create every table defined in schema.py, idempotently."""
+    from sqlalchemy import inspect
+    from fesi.db import get_engine, init_db
+    from fesi.store.schema import metadata
 
-    db_path = tmp_path / "test.db"
-    conn = sqlite3.connect(str(db_path))
-    try:
-        conn.executescript(sql)
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
-        tables = {row[0] for row in cursor.fetchall()}
-        for expected in [
-            "raw_items", "tickers", "signals", "decisions",
-            "trades", "outcomes", "prices", "embeddings",
-            "catalyst_priors", "digests",
-        ]:
-            assert expected in tables, f"missing table: {expected}"
-    finally:
-        conn.close()
+    expected = {t.name for t in metadata.sorted_tables}
+    inspector = inspect(get_engine())
+    actual = set(inspector.get_table_names())
+
+    missing = expected - actual
+    assert not missing, f"missing tables after init_db: {missing}"
+
+    # Re-running should be a no-op (no new tables created)
+    second = init_db()
+    assert second["created"] == []

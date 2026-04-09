@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # API (Phase 2)
+    api_token: str = ""
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+
 
 def get_settings() -> Settings:
     """Load settings fresh (re-reads env). Use this in tests after monkeypatching."""

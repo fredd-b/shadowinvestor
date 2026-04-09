@@ -106,6 +106,7 @@ def run_pipeline(
         stats.signals_created = len(signals_inserted)
 
         # ---- Phase D: Decide ----
+        from fesi.store.prices import get_latest_price
         for sid in signals_inserted:
             try:
                 signal = get_signal_by_id(conn, sid)
@@ -114,21 +115,16 @@ def run_pipeline(
                 outcome = make_decision(conn, signal)
                 if outcome["action"] == "buy":
                     stats.decisions_buy += 1
-                    # Phase 1: shadow execution always — never live
                     if signal.get("primary_ticker_id"):
-                        execute_shadow_buy(
-                            conn,
-                            decision_id=outcome["decision_id"],
-                            ticker_id=signal["primary_ticker_id"],
-                            shares=outcome["shares"],
-                            entry_price=float(
-                                conn.execute(
-                                    "SELECT close FROM prices "
-                                    "WHERE ticker_id = ? ORDER BY date DESC LIMIT 1",
-                                    (signal["primary_ticker_id"],),
-                                ).fetchone()["close"]
-                            ),
-                        )
+                        latest = get_latest_price(conn, signal["primary_ticker_id"])
+                        if latest is not None:
+                            execute_shadow_buy(
+                                conn,
+                                decision_id=outcome["decision_id"],
+                                ticker_id=signal["primary_ticker_id"],
+                                shares=outcome["shares"],
+                                entry_price=float(latest["close"]),
+                            )
                 else:
                     stats.decisions_no_buy += 1
             except Exception as e:

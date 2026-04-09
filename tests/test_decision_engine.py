@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from sqlalchemy import text
+
 
 def _seed_signal(conn, *, ticker_symbol: str, conviction: float, sector: str = "biotech_pharma") -> int:
     """Insert a synthetic signal pointing at a watchlist ticker. Returns signal_id."""
@@ -49,13 +51,21 @@ def _seed_price(conn, ticker_symbol: str, close: float) -> None:
     )
 
 
+def _fetch_signal(conn, sid: int) -> dict:
+    row = conn.execute(
+        text("SELECT * FROM signals WHERE id = :id"),
+        {"id": sid},
+    ).mappings().first()
+    return dict(row)
+
+
 def test_high_conviction_watchlist_buy(db_conn):
     _seed_price(db_conn, "ONC", close=200.0)
     sid = _seed_signal(db_conn, ticker_symbol="ONC", conviction=20.0)
-    signal = db_conn.execute("SELECT * FROM signals WHERE id = ?", (sid,)).fetchone()
+    signal = _fetch_signal(db_conn, sid)
 
     from fesi.decision.engine import make_decision
-    result = make_decision(db_conn, dict(signal))
+    result = make_decision(db_conn, signal)
 
     assert result["action"] == "buy"
     assert result["ticker"] == "ONC"
@@ -65,20 +75,20 @@ def test_high_conviction_watchlist_buy(db_conn):
 def test_low_conviction_no_buy(db_conn):
     _seed_price(db_conn, "ONC", close=200.0)
     sid = _seed_signal(db_conn, ticker_symbol="ONC", conviction=4.0)
-    signal = db_conn.execute("SELECT * FROM signals WHERE id = ?", (sid,)).fetchone()
+    signal = _fetch_signal(db_conn, sid)
 
     from fesi.decision.engine import make_decision
-    result = make_decision(db_conn, dict(signal))
+    result = make_decision(db_conn, signal)
 
     assert result["action"] == "no_buy"
 
 
 def test_no_price_data_no_buy(db_conn):
     sid = _seed_signal(db_conn, ticker_symbol="ONC", conviction=20.0)
-    signal = db_conn.execute("SELECT * FROM signals WHERE id = ?", (sid,)).fetchone()
+    signal = _fetch_signal(db_conn, sid)
 
     from fesi.decision.engine import make_decision
-    result = make_decision(db_conn, dict(signal))
+    result = make_decision(db_conn, signal)
 
     assert result["action"] == "no_buy"
     assert "price" in result["reason"].lower()
@@ -87,12 +97,15 @@ def test_no_price_data_no_buy(db_conn):
 def test_decision_persists_to_db(db_conn):
     _seed_price(db_conn, "ONC", close=200.0)
     sid = _seed_signal(db_conn, ticker_symbol="ONC", conviction=20.0)
-    signal = db_conn.execute("SELECT * FROM signals WHERE id = ?", (sid,)).fetchone()
+    signal = _fetch_signal(db_conn, sid)
 
     from fesi.decision.engine import make_decision
-    make_decision(db_conn, dict(signal))
+    make_decision(db_conn, signal)
 
-    rows = db_conn.execute("SELECT * FROM decisions WHERE signal_id = ?", (sid,)).fetchall()
+    rows = db_conn.execute(
+        text("SELECT * FROM decisions WHERE signal_id = :id"),
+        {"id": sid},
+    ).mappings().all()
     assert len(rows) == 1
     d = dict(rows[0])
     assert d["action"] == "buy"

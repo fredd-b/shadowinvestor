@@ -9,12 +9,14 @@ pipeline doesn't care which one is wired.
 """
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime, timezone
+
+from sqlalchemy import text
+from sqlalchemy.engine import Connection
 
 
 def execute_shadow_buy(
-    conn: sqlite3.Connection,
+    conn: Connection,
     *,
     decision_id: int,
     ticker_id: int,
@@ -23,23 +25,31 @@ def execute_shadow_buy(
 ) -> int:
     """Record a virtual filled buy in the trades table."""
     now = datetime.now(timezone.utc).isoformat()
-    cursor = conn.execute(
-        """
-        INSERT INTO trades (
-            decision_id, mode, side, ticker_id,
-            submitted_at, filled_at,
-            requested_shares, filled_shares,
-            requested_price, filled_price,
-            broker_order_id, status, fees_usd
-        )
-        VALUES (?, 'shadow', 'buy', ?, ?, ?, ?, ?, ?, ?, ?, 'filled', 0)
-        """,
-        (
-            decision_id, ticker_id,
-            now, now,
-            shares, shares,
-            entry_price, entry_price,
-            f"shadow-{decision_id}",
-        ),
+    result = conn.execute(
+        text("""
+            INSERT INTO trades (
+                decision_id, mode, side, ticker_id,
+                submitted_at, filled_at,
+                requested_shares, filled_shares,
+                requested_price, filled_price,
+                broker_order_id, status, fees_usd
+            )
+            VALUES (
+                :decision_id, 'shadow', 'buy', :ticker_id,
+                :now, :now,
+                :shares, :shares,
+                :entry_price, :entry_price,
+                :order_id, 'filled', 0
+            )
+            RETURNING id
+        """),
+        {
+            "decision_id": decision_id,
+            "ticker_id": ticker_id,
+            "now": now,
+            "shares": shares,
+            "entry_price": entry_price,
+            "order_id": f"shadow-{decision_id}",
+        },
     )
-    return cursor.lastrowid
+    return result.scalar_one()

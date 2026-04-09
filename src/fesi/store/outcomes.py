@@ -1,8 +1,11 @@
 """Outcomes store — joins signals to realized P&L for ML training & backtest."""
 from __future__ import annotations
 
-import sqlite3
 from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import text
+from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 
 from fesi.logging import get_logger
 from fesi.store.prices import get_price_on_or_after
@@ -10,33 +13,32 @@ from fesi.store.prices import get_price_on_or_after
 log = get_logger(__name__)
 
 
-def upsert_outcome_stub(conn: sqlite3.Connection, signal_id: int) -> int | None:
+def upsert_outcome_stub(conn: Connection, signal_id: int) -> int | None:
     """Create an empty outcomes row for a new signal so we can JOIN later."""
     now = datetime.now(timezone.utc).isoformat()
-    try:
-        cursor = conn.execute(
-            """
-            INSERT INTO outcomes (signal_id, last_updated_at, is_mature)
-            VALUES (?, ?, 0)
-            """,
-            (signal_id, now),
-        )
-        return cursor.lastrowid
-    except sqlite3.IntegrityError:
-        return None  # already exists
+    with conn.begin_nested():
+        try:
+            result = conn.execute(
+                text("""
+                    INSERT INTO outcomes (signal_id, last_updated_at, is_mature)
+                    VALUES (:signal_id, :now, 0)
+                    RETURNING id
+                """),
+                {"signal_id": signal_id, "now": now},
+            )
+            return result.scalar_one()
+        except IntegrityError:
+            return None  # already exists
 
 
 def update_outcome_for_signal(
-    conn: sqlite3.Connection, signal_id: int
+    conn: Connection, signal_id: int
 ) -> dict | None:
-    """Compute T+N returns for a signal by joining to its ticker's prices.
-
-    A signal is 'mature' once T+30 days have elapsed since the signal's event_at.
-    Sets price_t1, price_t5, price_t30, return_t*, max_drawup_30d, max_drawdown_30d.
-    """
+    """Compute T+N returns for a signal by joining to its ticker's prices."""
     signal = conn.execute(
-        "SELECT * FROM signals WHERE id = ?", (signal_id,)
-    ).fetchone()
+        text("SELECT * FROM signals WHERE id = :id"),
+        {"id": signal_id},
+    ).mappings().first()
     if not signal:
         return None
 
@@ -68,18 +70,17 @@ def update_outcome_for_signal(
             return None
         return round((p["close"] - base_price) / base_price, 4)
 
-    # Path metrics over 30 days
     rows = conn.execute(
-        """
-        SELECT high, low FROM prices
-        WHERE ticker_id = ? AND date BETWEEN ? AND ?
-        """,
-        (
-            ticker_id,
-            base_date.strftime("%Y-%m-%d"),
-            (base_date + timedelta(days=30)).strftime("%Y-%m-%d"),
-        ),
-    ).fetchall()
+        text("""
+            SELECT high, low FROM prices
+            WHERE ticker_id = :ticker_id AND date BETWEEN :start AND :end
+        """),
+        {
+            "ticker_id": ticker_id,
+            "start": base_date.strftime("%Y-%m-%d"),
+            "end": (base_date + timedelta(days=30)).strftime("%Y-%m-%d"),
+        },
+    ).mappings().all()
 
     max_drawup = None
     max_drawdown = None
@@ -95,26 +96,31 @@ def update_outcome_for_signal(
     now = datetime.now(timezone.utc).isoformat()
 
     conn.execute(
-        """
-        UPDATE outcomes
-        SET price_at_signal = ?,
-            price_t1 = ?, price_t5 = ?, price_t30 = ?, price_t90 = ?,
-            return_t1 = ?, return_t5 = ?, return_t30 = ?, return_t90 = ?,
-            max_drawup_30d = ?, max_drawdown_30d = ?,
-            last_updated_at = ?, is_mature = ?
-        WHERE signal_id = ?
-        """,
-        (
-            base_price,
-            p1["close"] if p1 else None,
-            p5["close"] if p5 else None,
-            p30["close"] if p30 else None,
-            p90["close"] if p90 else None,
-            ret(p1), ret(p5), ret(p30), ret(p90),
-            max_drawup, max_drawdown,
-            now, int(is_mature),
-            signal_id,
-        ),
+        text("""
+            UPDATE outcomes
+            SET price_at_signal = :p0,
+                price_t1 = :p1, price_t5 = :p5, price_t30 = :p30, price_t90 = :p90,
+                return_t1 = :r1, return_t5 = :r5, return_t30 = :r30, return_t90 = :r90,
+                max_drawup_30d = :du, max_drawdown_30d = :dd,
+                last_updated_at = :now, is_mature = :mature
+            WHERE signal_id = :signal_id
+        """),
+        {
+            "p0": base_price,
+            "p1": p1["close"] if p1 else None,
+            "p5": p5["close"] if p5 else None,
+            "p30": p30["close"] if p30 else None,
+            "p90": p90["close"] if p90 else None,
+            "r1": ret(p1),
+            "r5": ret(p5),
+            "r30": ret(p30),
+            "r90": ret(p90),
+            "du": max_drawup,
+            "dd": max_drawdown,
+            "now": now,
+            "mature": int(is_mature),
+            "signal_id": signal_id,
+        },
     )
 
     return {
@@ -127,13 +133,11 @@ def update_outcome_for_signal(
     }
 
 
-def update_all_outcomes(conn: sqlite3.Connection) -> dict:
+def update_all_outcomes(conn: Connection) -> dict:
     """Daily job: update outcomes for all signals that aren't yet fully mature."""
     rows = conn.execute(
-        """
-        SELECT signal_id FROM outcomes WHERE is_mature = 0
-        """
-    ).fetchall()
+        text("SELECT signal_id FROM outcomes WHERE is_mature = 0")
+    ).mappings().all()
     updated = 0
     matured = 0
     for r in rows:

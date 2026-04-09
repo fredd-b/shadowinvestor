@@ -130,7 +130,14 @@ export default async function HomePage({
                       <td className="px-4 py-3 text-right text-xs text-zinc-500">
                         {s.impact_score}/{s.probability_score}
                       </td>
-                      <td className="px-4 py-3 text-zinc-300">{s.headline}</td>
+                      <td className="px-4 py-3 text-zinc-300">
+                        <Link
+                          href={`/signals/${s.id}`}
+                          className="hover:text-zinc-100 hover:underline"
+                        >
+                          {s.headline}
+                        </Link>
+                      </td>
                     </tr>
                   );
                 })

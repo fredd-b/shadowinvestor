@@ -40,5 +40,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -fsS "http://localhost:${PORT:-8000}/health" || exit 1
 
 # Default command starts the API. The scheduler service overrides this with
-# `fesi schedule run`.
-CMD uvicorn fesi.api.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# `fesi schedule run`. Use explicit sh -c so $PORT is expanded by the shell;
+# Railway's runtime treats shell-form CMD as exec without expansion otherwise.
+CMD ["/bin/sh", "-c", "uvicorn fesi.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

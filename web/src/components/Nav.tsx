@@ -6,6 +6,8 @@ const NAV_ITEMS = [
   { href: "/tickers", label: "Tickers" },
   { href: "/sources", label: "Sources" },
   { href: "/digests", label: "Digests" },
+  { href: "/framework", label: "Framework" },
+  { href: "/admin", label: "Admin" },
 ];
 
 export default function Nav() {

@@ -1,0 +1,232 @@
+# Catalyst type taxonomy
+# Each catalyst has: applicable sectors, typical impact, typical timeframe,
+# direction, signal patterns to look for, baseline prior (filled in over time from data)
+
+catalysts:
+
+  # ---------- Biotech / Pharma ----------
+
+  fda_approval:
+    display_name: "FDA Approval (PDUFA action date — approval)"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 5
+    typical_timeframe: "0-3m"
+    direction: bullish
+    patterns:
+      - "FDA approves"
+      - "approves NDA"
+      - "approves BLA"
+      - "PDUFA action date"
+    baseline_hit_rate: null
+    notes: "Single highest-impact catalyst type in biotech. Major spike potential, often >30% in small caps."
+
+  fda_complete_response_letter:
+    display_name: "FDA Complete Response Letter (CRL)"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 5
+    typical_timeframe: "0-3m"
+    direction: bearish
+    patterns:
+      - "complete response letter"
+      - "CRL"
+      - "FDA declined"
+    notes: "Catastrophic for small biotech. Track for short opportunities (later phase) and to AVOID names."
+
+  fda_breakthrough_designation:
+    display_name: "FDA Breakthrough Therapy Designation"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 4
+    typical_timeframe: "0-3m"
+    direction: bullish
+    patterns:
+      - "breakthrough therapy designation"
+      - "FDA breakthrough"
+
+  fda_fast_track:
+    display_name: "FDA Fast Track Designation"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 3
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  fda_orphan_drug:
+    display_name: "FDA Orphan Drug Designation"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 3
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  fda_adcom_scheduled:
+    display_name: "FDA Advisory Committee Date Scheduled"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 3
+    typical_timeframe: "0-3m"
+    direction: neutral
+    notes: "Sets up future binary event. Add to follow-up watchlist with the AdCom date."
+
+  fda_adcom_outcome:
+    display_name: "FDA Advisory Committee Vote"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 5
+    typical_timeframe: "0-3m"
+    direction: neutral
+
+  bla_nda_filing_accepted:
+    display_name: "BLA / NDA Filing Accepted by FDA"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 4
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  phase3_readout_positive:
+    display_name: "Pivotal Phase 3 Readout — Positive"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 5
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  phase3_readout_negative:
+    display_name: "Pivotal Phase 3 Readout — Failed"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 5
+    typical_timeframe: "0-3m"
+    direction: bearish
+
+  phase2_readout_positive:
+    display_name: "Phase 2 Readout — Positive"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 4
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  out_licensing_deal:
+    display_name: "Out-Licensing / Co-Development Deal"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    typical_impact: 4
+    typical_timeframe: "0-3m"
+    direction: bullish
+    notes: "For Chinese biotechs, licensing to US Big Pharma is the highest-quality early signal."
+
+  nmpa_approval:
+    display_name: "NMPA (China FDA) Approval"
+    sectors: [china_biotech_us_pipeline]
+    typical_impact: 3
+    typical_timeframe: "0-3m"
+    direction: bullish
+    notes: "Leading indicator of US filing strength."
+
+  # ---------- AI Infrastructure ----------
+
+  ai_compute_contract_long_term:
+    display_name: "Long-Term AI Compute Contract Win"
+    sectors: [ai_infrastructure, crypto_to_ai_pivot]
+    typical_impact: 5
+    typical_timeframe: "0-3m"
+    direction: bullish
+    notes: "Multi-year, multi-hundred-million USD contracts have outsized impact on small/mid-cap names."
+
+  ai_server_design_win:
+    display_name: "Major AI Server / Chip Design Win"
+    sectors: [ai_infrastructure]
+    typical_impact: 4
+    typical_timeframe: "3-12m"
+    direction: bullish
+
+  data_center_capacity_announcement:
+    display_name: "Data Center Capacity Expansion (with Pre-Sold Demand)"
+    sectors: [ai_infrastructure]
+    typical_impact: 4
+    typical_timeframe: "3-12m"
+    direction: bullish
+    notes: "Only counts if pre-sold or anchored by named customer."
+
+  hbm_supply_constraint:
+    display_name: "HBM / Memory Supply Constraint Signal"
+    sectors: [ai_infrastructure]
+    typical_impact: 4
+    typical_timeframe: "3-12m"
+    direction: bullish
+    notes: "Memory shortage news lifts the entire memory supply chain."
+
+  # ---------- Crypto miner pivots ----------
+
+  miner_hpc_hosting_contract:
+    display_name: "Crypto Miner Wins AI/HPC Hosting Contract"
+    sectors: [crypto_to_ai_pivot]
+    typical_impact: 5
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  miner_gpu_procurement:
+    display_name: "Large GPU Procurement Tied to Named Customer"
+    sectors: [crypto_to_ai_pivot]
+    typical_impact: 4
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  # ---------- Commodities ----------
+
+  mine_first_production:
+    display_name: "First Production Achieved"
+    sectors: [commodities_critical_minerals]
+    typical_impact: 5
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  mine_commissioning_milestone:
+    display_name: "Mine Commissioning Milestone"
+    sectors: [commodities_critical_minerals]
+    typical_impact: 4
+    typical_timeframe: "3-12m"
+    direction: bullish
+
+  offtake_agreement_signed:
+    display_name: "Offtake Agreement Signed"
+    sectors: [commodities_critical_minerals]
+    typical_impact: 4
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  reserve_upgrade:
+    display_name: "Reserve Estimate Upgrade"
+    sectors: [commodities_critical_minerals]
+    typical_impact: 3
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  high_grade_drilling_intercept:
+    display_name: "High-Grade Drilling Intercept (Advanced Project)"
+    sectors: [commodities_critical_minerals]
+    typical_impact: 3
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  # ---------- Other binary catalysts ----------
+
+  defense_contract_award:
+    display_name: "Defense Contract Award"
+    sectors: [binary_event_other]
+    typical_impact: 4
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  large_buyback_announced:
+    display_name: "Large Share Buyback Announced (>5% of float)"
+    sectors: [binary_event_other]
+    typical_impact: 3
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  guidance_raise:
+    display_name: "Guidance Raise"
+    sectors: [biotech_pharma, ai_infrastructure, commodities_critical_minerals, binary_event_other]
+    typical_impact: 3
+    typical_timeframe: "0-3m"
+    direction: bullish
+
+  guidance_cut:
+    display_name: "Guidance Cut"
+    sectors: [biotech_pharma, ai_infrastructure, commodities_critical_minerals, binary_event_other]
+    typical_impact: 4
+    typical_timeframe: "0-3m"
+    direction: bearish

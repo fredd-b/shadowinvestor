@@ -1,0 +1,199 @@
+# Data sources we ingest from. Trust scores are 1-5 (5 = highest credibility).
+# active=false means not yet implemented or temporarily disabled.
+
+sources:
+
+  # ---------- Free regulatory / official ----------
+
+  fda_openfda:
+    display_name: "FDA OpenFDA API"
+    type: regulatory
+    cost: free
+    monthly_usd: 0
+    trust: 5
+    rate_limit_per_minute: 240
+    base_url: "https://api.fda.gov"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    active: true
+    notes: "Drug approvals, recalls, AdCom, NDAs/BLAs"
+
+  sec_edgar:
+    display_name: "SEC EDGAR"
+    type: regulatory
+    cost: free
+    monthly_usd: 0
+    trust: 5
+    rate_limit_per_minute: 600
+    base_url: "https://data.sec.gov"
+    sectors: [biotech_pharma, ai_infrastructure, crypto_to_ai_pivot, commodities_critical_minerals, binary_event_other]
+    active: true
+    notes: "8-K, S-1, 10-Q, insider Form 4"
+
+  clinicaltrials_gov:
+    display_name: "ClinicalTrials.gov"
+    type: regulatory
+    cost: free
+    monthly_usd: 0
+    trust: 5
+    rate_limit_per_minute: 60
+    base_url: "https://clinicaltrials.gov/api/v2"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    active: true
+
+  hkex_filings:
+    display_name: "HKEX News Filings"
+    type: regulatory
+    cost: free
+    monthly_usd: 0
+    trust: 5
+    rate_limit_per_minute: 30
+    base_url: "https://www.hkexnews.hk"
+    sectors: [china_biotech_us_pipeline, commodities_critical_minerals]
+    active: false
+    notes: "Phase 1 — implement after FDA + EDGAR working"
+
+  nmpa_china:
+    display_name: "NMPA (China FDA) Public Listings"
+    type: regulatory
+    cost: free
+    monthly_usd: 0
+    trust: 5
+    rate_limit_per_minute: 30
+    base_url: "https://www.nmpa.gov.cn"
+    sectors: [china_biotech_us_pipeline]
+    active: false
+    notes: "Chinese language — needs LLM translation pass. Phase 2."
+
+  federal_register:
+    display_name: "US Federal Register"
+    type: regulatory
+    cost: free
+    monthly_usd: 0
+    trust: 5
+    rate_limit_per_minute: 60
+    base_url: "https://www.federalregister.gov/api/v1"
+    sectors: [binary_event_other]
+    active: false
+
+  # ---------- Free press wires ----------
+
+  pr_newswire:
+    display_name: "PR Newswire RSS"
+    type: press_release
+    cost: free
+    monthly_usd: 0
+    trust: 3
+    rate_limit_per_minute: 60
+    base_url: "https://www.prnewswire.com/rss"
+    sectors: [biotech_pharma, china_biotech_us_pipeline, ai_infrastructure, crypto_to_ai_pivot, commodities_critical_minerals, binary_event_other]
+    active: true
+
+  globenewswire:
+    display_name: "GlobeNewswire RSS"
+    type: press_release
+    cost: free
+    monthly_usd: 0
+    trust: 3
+    rate_limit_per_minute: 60
+    base_url: "https://www.globenewswire.com/RssFeed"
+    sectors: [biotech_pharma, ai_infrastructure, crypto_to_ai_pivot, commodities_critical_minerals]
+    active: true
+
+  businesswire:
+    display_name: "BusinessWire RSS"
+    type: press_release
+    cost: free
+    monthly_usd: 0
+    trust: 3
+    rate_limit_per_minute: 60
+    base_url: "https://www.businesswire.com/portal/site/home/news"
+    sectors: [biotech_pharma, ai_infrastructure, crypto_to_ai_pivot, commodities_critical_minerals, binary_event_other]
+    active: true
+
+  # ---------- Specialized news (paid) ----------
+
+  endpoints_news:
+    display_name: "Endpoints News"
+    type: specialized_news
+    cost: paid
+    monthly_usd: 18
+    trust: 5
+    rate_limit_per_minute: 60
+    base_url: "https://endpts.com"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    active: false
+    notes: "Best biotech beat. Has dedicated China desk. Highly recommended for the China-biotech category."
+
+  biocentury:
+    display_name: "BioCentury"
+    type: specialized_news
+    cost: paid
+    monthly_usd: 200
+    trust: 5
+    rate_limit_per_minute: 60
+    base_url: "https://www.biocentury.com"
+    sectors: [biotech_pharma, china_biotech_us_pipeline]
+    active: false
+    notes: "Premium biotech research. Expensive — defer until ROI proven."
+
+  benzinga_pro:
+    display_name: "Benzinga Pro"
+    type: specialized_news
+    cost: paid
+    monthly_usd: 99
+    trust: 4
+    rate_limit_per_minute: 60
+    base_url: "https://www.benzinga.com"
+    sectors: [biotech_pharma, ai_infrastructure, crypto_to_ai_pivot, commodities_critical_minerals, binary_event_other]
+    active: false
+
+  # ---------- Aggregators ----------
+
+  polygon_news:
+    display_name: "Polygon.io News API"
+    type: news_aggregator
+    cost: paid
+    monthly_usd: 29
+    trust: 4
+    rate_limit_per_minute: 100
+    base_url: "https://api.polygon.io"
+    sectors: [biotech_pharma, ai_infrastructure, crypto_to_ai_pivot, commodities_critical_minerals, binary_event_other]
+    active: false
+    notes: "Recommended Phase 1 paid add — broad ticker-tagged news."
+
+  perplexity_api:
+    display_name: "Perplexity API"
+    type: llm_grounded_search
+    cost: paid
+    monthly_usd: 20
+    trust: 4
+    rate_limit_per_minute: 60
+    base_url: "https://api.perplexity.ai"
+    sectors: [biotech_pharma, china_biotech_us_pipeline, ai_infrastructure, crypto_to_ai_pivot, commodities_critical_minerals, binary_event_other]
+    active: false
+    notes: "Use for live web grounding queries. Replaces Fred's manual copy-paste loop."
+
+  # ---------- Social / alt-data ----------
+
+  reddit_subreddits:
+    display_name: "Reddit (curated subreddits)"
+    type: social
+    cost: free
+    monthly_usd: 0
+    trust: 2
+    rate_limit_per_minute: 60
+    base_url: "https://www.reddit.com"
+    sectors: [biotech_pharma, ai_infrastructure, crypto_to_ai_pivot, commodities_critical_minerals]
+    active: false
+    notes: "r/biotechplays, r/UraniumSqueeze, r/AIstocks, etc. Noisy but occasionally early."
+
+  stocktwits:
+    display_name: "StockTwits"
+    type: social
+    cost: free
+    monthly_usd: 0
+    trust: 1
+    rate_limit_per_minute: 60
+    base_url: "https://api.stocktwits.com"
+    sectors: [biotech_pharma, ai_infrastructure, crypto_to_ai_pivot, commodities_critical_minerals]
+    active: false

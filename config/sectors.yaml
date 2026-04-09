@@ -1,0 +1,90 @@
+# 6 sectors we monitor for catalysts
+# Each sector has sub-sectors and per-sector defaults
+
+sectors:
+
+  biotech_pharma:
+    display_name: "Biotech & Pharma (Global)"
+    description: "Global biotech/pharma — regulator decisions, pivotal trial readouts, licensing deals"
+    sub_sectors:
+      - oncology
+      - rare_disease
+      - cns_neurology
+      - immunology
+      - cardiometabolic
+      - infectious_disease
+      - gene_cell_therapy
+    default_impact_ceiling: 5
+    typical_timeframes: ["0-3m", "3-12m"]
+    notes: "Excludes Chinese-domiciled — see china_biotech_us_pipeline category"
+
+  china_biotech_us_pipeline:
+    display_name: "China Biotech → FDA Pipeline"
+    description: "Chinese-domiciled (or HK/Cayman-listed Chinese) biotech with drugs tracking toward US FDA submission/approval/launch, including via licensing to US Big Pharma"
+    sub_sectors:
+      - oncology
+      - autoimmune
+      - rare_disease
+      - antibody_drug_conjugate
+      - bispecific_antibody
+    default_impact_ceiling: 5
+    typical_timeframes: ["0-3m", "3-12m"]
+    sources_critical:
+      - hkex_filings
+      - nmpa_china
+      - fda_openfda
+      - clinicaltrials_gov
+      - endpoints_news
+    notes: "Treat as first-class category. Higher edge area because under-followed by US analysts."
+
+  ai_infrastructure:
+    display_name: "AI Infrastructure"
+    description: "GPU cloud, data center REITs, networking/optics/semis, AI server design wins, capacity expansions with pre-sold demand"
+    sub_sectors:
+      - gpu_compute_cloud
+      - data_center_reit
+      - networking_optics
+      - hbm_memory
+      - power_infrastructure
+      - ai_chip_design
+    default_impact_ceiling: 4
+    typical_timeframes: ["3-12m", "1-3y"]
+
+  crypto_to_ai_pivot:
+    display_name: "Crypto Miners Pivoting to AI/HPC"
+    description: "Bitcoin miners and HPC infrastructure operators pivoting to AI/HPC hosting via long-term contracts and large GPU procurements"
+    sub_sectors:
+      - btc_miner_hpc_pivot
+      - colocation_for_ai
+      - power_for_compute
+    default_impact_ceiling: 5
+    typical_timeframes: ["0-3m", "3-12m"]
+
+  commodities_critical_minerals:
+    display_name: "Commodities — Uranium, Gold, Critical Minerals"
+    description: "Mine construction milestones, commissioning, first production, offtakes, reserve upgrades, high-grade exploration at advanced projects"
+    sub_sectors:
+      - uranium
+      - gold
+      - copper
+      - lithium
+      - rare_earths
+      - graphite
+      - nickel
+      - silver
+    default_impact_ceiling: 4
+    typical_timeframes: ["3-12m", "1-3y"]
+    notes: "Fred's time horizon is up to 1y, so prioritize near-term catalysts (commissioning, first production, offtake signing) over multi-year exploration plays."
+
+  binary_event_other:
+    display_name: "Other Binary-Catalyst Sectors"
+    description: "Catch-all for any sector where a single contract, product, regulation, or filing can materially shift revenue/margins"
+    sub_sectors:
+      - defense_contract_award
+      - space_launch_contract
+      - tariff_or_trade_action
+      - merger_arb
+      - large_buyback
+      - guidance_revision
+    default_impact_ceiling: 4
+    typical_timeframes: ["0-3m", "3-12m"]

@@ -1,0 +1,171 @@
+# Initial watchlist — Phase 0 seeds
+# Fred to expand. Each ticker has thesis + alert thresholds.
+# alert_min_conviction: 1-5, signals at or above this conviction trigger urgent push.
+
+tickers:
+
+  # ===== China biotech → FDA pipeline =====
+
+  - symbol: ONC
+    exchange: NASDAQ
+    name: "BeOne Medicines"
+    sector: china_biotech_us_pipeline
+    sub_sector: oncology
+    thesis: "Formerly BeiGene; largest China biotech US listed, Brukinsa/Tislelizumab pipeline, multiple PDUFA dates ahead"
+    alert_min_conviction: 3
+    aliases: ["BeiGene", "BGNE", "Brukinsa"]
+
+  - symbol: LEGN
+    exchange: NASDAQ
+    name: "Legend Biotech"
+    sector: china_biotech_us_pipeline
+    sub_sector: oncology
+    thesis: "Carvykti CAR-T, J&J partnership, label expansion catalysts"
+    alert_min_conviction: 3
+
+  - symbol: HCM
+    exchange: NASDAQ
+    name: "HUTCHMED"
+    sector: china_biotech_us_pipeline
+    sub_sector: oncology
+    thesis: "Fruquintinib (Fruzaqla) approved, multiple US filings in pipeline"
+    alert_min_conviction: 3
+
+  - symbol: ZLAB
+    exchange: NASDAQ
+    name: "Zai Lab"
+    sector: china_biotech_us_pipeline
+    sub_sector: oncology
+    thesis: "Multiple in-licensed assets, US commercial reach"
+    alert_min_conviction: 3
+
+  # Note: I-Mab and LianBio were removed from this watchlist after both
+  # underwent restructuring and Yahoo Finance no longer carries them.
+  # Re-add if they relist, or replace with another China-biotech name.
+
+  - symbol: 1801.HK
+    exchange: HKEX
+    name: "Innovent Biologics"
+    sector: china_biotech_us_pipeline
+    sub_sector: oncology
+    thesis: "Sintilimab pipeline, watching for new US partnerships"
+    alert_min_conviction: 3
+
+  - symbol: 9926.HK
+    exchange: HKEX
+    name: "Akeso"
+    sector: china_biotech_us_pipeline
+    sub_sector: oncology
+    thesis: "Ivonescimab (PD-1/VEGF bispecific) — Summit Therapeutics partnership for US"
+    alert_min_conviction: 4
+
+  - symbol: 9995.HK
+    exchange: HKEX
+    name: "RemeGen"
+    sector: china_biotech_us_pipeline
+    sub_sector: antibody_drug_conjugate
+    thesis: "Disitamab vedotin ADC, multiple US trial sites"
+    alert_min_conviction: 3
+
+  - symbol: 1877.HK
+    exchange: HKEX
+    name: "Junshi Biosciences"
+    sector: china_biotech_us_pipeline
+    sub_sector: oncology
+    thesis: "Toripalimab — first China PD-1 approved by FDA"
+    alert_min_conviction: 3
+
+  # ===== Uranium (commodities) =====
+
+  - symbol: CCJ
+    exchange: NYSE
+    name: "Cameco"
+    sector: commodities_critical_minerals
+    sub_sector: uranium
+    thesis: "Largest pure-play uranium producer, Westinghouse stake"
+    alert_min_conviction: 3
+
+  - symbol: NXE
+    exchange: NYSE
+    name: "NexGen Energy"
+    sector: commodities_critical_minerals
+    sub_sector: uranium
+    thesis: "Rook I project commissioning, high-grade Athabasca"
+    alert_min_conviction: 3
+
+  - symbol: DNN
+    exchange: NYSE
+    name: "Denison Mines"
+    sector: commodities_critical_minerals
+    sub_sector: uranium
+    thesis: "Wheeler River ISR project, near-term production"
+    alert_min_conviction: 3
+
+  - symbol: UEC
+    exchange: NYSE
+    name: "Uranium Energy Corp"
+    sector: commodities_critical_minerals
+    sub_sector: uranium
+    thesis: "US ISR producer, multiple restart projects"
+    alert_min_conviction: 3
+
+  # ===== AI Infrastructure =====
+
+  - symbol: NVDA
+    exchange: NASDAQ
+    name: "NVIDIA"
+    sector: ai_infrastructure
+    sub_sector: ai_chip_design
+    thesis: "AI compute monopoly — track design wins, supply, China export"
+    alert_min_conviction: 4
+    notes: "Mega-cap, edge from speed unlikely. Track for sector signal."
+
+  - symbol: SMCI
+    exchange: NASDAQ
+    name: "Super Micro Computer"
+    sector: ai_infrastructure
+    sub_sector: ai_chip_design
+    thesis: "AI server design wins, hyperscaler contracts"
+    alert_min_conviction: 3
+
+  - symbol: VRT
+    exchange: NYSE
+    name: "Vertiv"
+    sector: ai_infrastructure
+    sub_sector: power_infrastructure
+    thesis: "Data center power & cooling, AI buildout pure play"
+    alert_min_conviction: 3
+
+  # ===== Crypto-to-AI pivots =====
+
+  - symbol: CIFR
+    exchange: NASDAQ
+    name: "Cipher Mining"
+    sector: crypto_to_ai_pivot
+    sub_sector: btc_miner_hpc_pivot
+    thesis: "Texas BTC miner exploring HPC hosting pivot"
+    alert_min_conviction: 4
+
+  - symbol: IREN
+    exchange: NASDAQ
+    name: "IREN (Iris Energy)"
+    sector: crypto_to_ai_pivot
+    sub_sector: btc_miner_hpc_pivot
+    thesis: "Renewable BTC miner with active AI/HPC build"
+    alert_min_conviction: 4
+
+  - symbol: WULF
+    exchange: NASDAQ
+    name: "TeraWulf"
+    sector: crypto_to_ai_pivot
+    sub_sector: btc_miner_hpc_pivot
+    thesis: "Active HPC hosting buildout"
+    alert_min_conviction: 4
+
+  - symbol: CORZ
+    exchange: NASDAQ
+    name: "Core Scientific"
+    sector: crypto_to_ai_pivot
+    sub_sector: btc_miner_hpc_pivot
+    thesis: "Major HPC hosting contract with CoreWeave"
+    alert_min_conviction: 4

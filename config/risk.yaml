@@ -1,0 +1,30 @@
+# v0 risk policy — confirmed with Fred 2026-04-09
+# All values are USD unless noted otherwise.
+
+position:
+  max_per_trade_usd: 2000
+  max_concurrent_positions: 6
+  max_per_sector_pct: 40            # max 40% of deployed capital in one sector
+  max_per_ticker_lifetime_usd: 4000  # never average down past this on one name
+
+capital:
+  monthly_deployment_cap_usd: 10000
+  reserve_pct: 20                   # always keep 20% cash for high-conviction surprises
+
+circuit_breakers:
+  daily_loss_halt_pct: 10           # halt new entries if -10% on the day
+  weekly_loss_halt_pct: 15          # halt new entries until manual reset
+  consecutive_loss_count: 4         # 4 losing trades in a row → manual review required
+
+execution:
+  default_mode: shadow              # all trades start in shadow mode
+  shadow_first_n_trades: 999        # never auto-flip to live; manual flag required
+  live_first_n_trades_require_approval: 10
+  kill_switch_enabled: true
+
+account:
+  type: cash
+  margin: false
+  options: false
+  shorts: false
+  currency: USD

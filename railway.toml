@@ -1,9 +1,13 @@
 # Railway configuration for ShadowInvestor.
-# Defines two services that share one Docker image:
-#   1. shadowinvestor-api       — FastAPI server, public-facing
-#   2. shadowinvestor-scheduler — long-running APScheduler, no public port
 #
-# Both services connect to the same managed Postgres via DATABASE_URL.
+# Build: Dockerfile-based.
+# Start: NOT set here (was previously "uvicorn ... --port ${PORT:-8000}" but
+#        Railway's runtime doesn't expand shell vars in startCommand). Each
+#        service sets its own startCommand via the dashboard or API:
+#          shadowinvestor-api       → "fesi api run"  (reads $PORT in Python)
+#          shadowinvestor-scheduler → "fesi schedule run"
+#
+# The Dockerfile CMD is the fallback if no service-level startCommand is set.
 
 [build]
 builder = "DOCKERFILE"
@@ -11,11 +15,6 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/health"
-healthcheckTimeout = 60
+healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
-
-# The default service is the API. The scheduler is added as a separate
-# service via the Railway dashboard or `railway service create` and shares
-# this same source/image but uses startCommand below.
-startCommand = "uvicorn fesi.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"

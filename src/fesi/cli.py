@@ -207,14 +207,14 @@ def ingest_wires() -> None:
 @ingest.command("perplexity")
 def ingest_perplexity() -> None:
     """Fetch catalyst events via Perplexity web search (needs PERPLEXITY_API_KEY)."""
+    from fesi.db import connect
     from fesi.ingest.perplexity import PerplexityAdapter
+    from fesi.store.raw_items import insert_raw_items
     adapter = PerplexityAdapter()
     if not adapter.enabled:
         click.echo("PERPLEXITY_API_KEY not set — skipping.")
         return
     items = adapter.fetch()
-    from fesi.db import connect
-    from fesi.store.raw_items import insert_raw_items
     with connect() as conn:
         result = insert_raw_items(conn, items)
     click.echo(json.dumps({"fetched": len(items), **result}, indent=2))

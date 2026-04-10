@@ -11,13 +11,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from datetime import datetime, timezone
-from typing import Any
 
-from fesi.config import get_settings, load_catalysts, load_sectors, load_watchlist
+from fesi.config import SectorConfig, get_settings, load_catalysts, load_sectors, load_watchlist
 from fesi.ingest.base import IngestAdapter, RawItem
 from fesi.ingest.http import RateLimiter, get_client, post_json
+from fesi.intelligence.llm import strip_md_fence
 from fesi.logging import get_logger
 
 log = get_logger(__name__)
@@ -96,14 +95,14 @@ class PerplexityAdapter(IngestAdapter):
         for t in self.watchlist:
             if t.sector == sector_key:
                 aliases = ""
-                if hasattr(t, "aliases") and t.aliases:
+                if t.aliases:
                     aliases = f" (also: {', '.join(t.aliases)})"
                 lines.append(f"- {t.symbol} ({t.name}{aliases}) — {t.thesis}")
         return lines
 
     def _make_prompt(
         self,
-        sector: Any,
+        sector: SectorConfig,
         catalyst_names: list[str],
         watchlist_lines: list[str],
     ) -> str:
@@ -209,7 +208,7 @@ Do NOT invent events. Only report events with real sources."""
         Perplexity sometimes appends prose explanation after the JSON array.
         We try: (1) full content, (2) extract first [...] block via bracket matching.
         """
-        text = _strip_md_fences(content).strip()
+        text = strip_md_fence(content).strip()
         if not text:
             return []
         # Attempt 1: parse the whole thing
@@ -270,13 +269,6 @@ Do NOT invent events. Only report events with real sources."""
             )
         except (ValueError, TypeError):
             return None
-
-
-def _strip_md_fences(text: str) -> str:
-    """Remove ```json ... ``` or ``` ... ``` wrappers from LLM output."""
-    text = re.sub(r"^```(?:json)?\s*\n?", "", text.strip())
-    text = re.sub(r"\n?```\s*$", "", text.strip())
-    return text
 
 
 def _extract_json_array(text: str) -> str | None:

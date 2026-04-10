@@ -11,7 +11,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from fesi.ingest.base import RawItem
-from fesi.ingest.perplexity import PerplexityAdapter, _strip_md_fences
+from fesi.ingest.perplexity import PerplexityAdapter
+from fesi.intelligence.llm import strip_md_fence
 
 
 # ---------- Fixtures ----------
@@ -248,8 +249,8 @@ def test_cross_source_normalize(monkeypatch, make_raw_item):
     assert "perplexity_api" in candidates[0].sources
 
 
-def test_strip_md_fences():
+def teststrip_md_fence():
     """Markdown fence stripping works for various formats."""
-    assert _strip_md_fences('```json\n[{"a":1}]\n```') == '[{"a":1}]'
-    assert _strip_md_fences('```\n[{"a":1}]\n```') == '[{"a":1}]'
-    assert _strip_md_fences('[{"a":1}]') == '[{"a":1}]'
+    assert strip_md_fence('```json\n[{"a":1}]\n```') == '[{"a":1}]'
+    assert strip_md_fence('```\n[{"a":1}]\n```') == '[{"a":1}]'
+    assert strip_md_fence('[{"a":1}]') == '[{"a":1}]'

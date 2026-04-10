@@ -233,11 +233,11 @@ def _deterministic_score(
 # Claude implementations (only used when ANTHROPIC_API_KEY is set)
 # ============================================================================
 
-def _strip_md_fence(text: str) -> str:
-    text = text.strip()
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-    return text.strip()
+def strip_md_fence(text: str) -> str:
+    """Remove ```json ... ``` or ``` ... ``` wrappers from LLM output."""
+    text = re.sub(r"^```(?:json)?\s*\n?", "", text.strip())
+    text = re.sub(r"\n?```\s*$", "", text.strip())
+    return text
 
 
 def _claude_classify(
@@ -290,7 +290,7 @@ Output ONLY a single JSON object (no prose, no markdown fence) with these keys:
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
-    text = _strip_md_fence(response.content[0].text)
+    text = strip_md_fence(response.content[0].text)
     data = json.loads(text)
 
     return ClassificationResult(
@@ -349,7 +349,7 @@ Output ONLY a single JSON object (no prose, no markdown fence):
         max_tokens=512,
         messages=[{"role": "user", "content": prompt}],
     )
-    text = _strip_md_fence(response.content[0].text)
+    text = strip_md_fence(response.content[0].text)
     data = json.loads(text)
 
     return ScoringResult(

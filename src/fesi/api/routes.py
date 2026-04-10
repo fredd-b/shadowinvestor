@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from fesi import __version__
 from fesi.api import schemas
-from fesi.config import get_settings, load_sources
+from fesi.config import get_settings, load_sectors, load_sources
 from fesi.db import connect
 from fesi.intelligence.llm import has_anthropic
 from fesi.logging import get_logger
@@ -261,3 +261,87 @@ def run_pipeline_endpoint(
     from fesi.ops.pipeline import run_pipeline
     stats = run_pipeline(scan_window_hours=window_hours, silent_alerts=silent)
     return schemas.PipelineRunOut(**stats.to_dict())
+
+
+# ============================================================================
+# Research — per-sector Perplexity queries
+# ============================================================================
+@router.get("/research/status", response_model=list[schemas.ResearchSectorOut])
+def get_research_status() -> list[schemas.ResearchSectorOut]:
+    """List all 6 research sectors with their last run time and query description."""
+    from fesi.ingest.perplexity import PerplexityAdapter
+
+    sectors_cfg = load_sectors()
+    adapter = PerplexityAdapter()
+    queries = adapter._build_queries() if adapter.enabled else []
+    query_map = {k: p for k, p in queries}
+
+    # Get last Perplexity fetch per sector from raw_items
+    # Use Postgres JSON operator or SQLite json_extract depending on DB
+    s = get_settings()
+    if s.database_url.startswith("postgresql"):
+        sector_expr = "raw_payload::json->>'sector_query'"
+    else:
+        sector_expr = "json_extract(raw_payload, '$.sector_query')"
+    with connect() as conn:
+        rows = conn.execute(text(f"""
+            SELECT
+                {sector_expr} AS sector_key,
+                MAX(fetched_at) AS last_fetched,
+                COUNT(*) AS items_found
+            FROM raw_items
+            WHERE source = 'perplexity_api'
+            GROUP BY {sector_expr}
+        """)).mappings().all()
+    last_runs = {r["sector_key"]: r for r in rows}
+
+    schedule = [
+        {"time": "15:00", "label": "pre_market"},
+        {"time": "18:00", "label": "post_open"},
+        {"time": "22:00", "label": "mid_session"},
+        {"time": "02:00", "label": "post_close"},
+        {"time": "08:00", "label": "morning_catchup"},
+    ]
+
+    result = []
+    for key, sector in sectors_cfg.items():
+        run = last_runs.get(key)
+        result.append(schemas.ResearchSectorOut(
+            sector_key=key,
+            display_name=sector.display_name,
+            description=sector.description,
+            query_preview=query_map.get(key, "")[:300] if query_map.get(key) else None,
+            last_run_at=run["last_fetched"] if run else None,
+            items_found_last_run=run["items_found"] if run else 0,
+            enabled=adapter.enabled,
+            schedule=schedule,
+        ))
+    return result
+
+
+@router.post("/research/run", response_model=schemas.ResearchRunOut)
+def run_research(
+    sector: str | None = Query(None, description="Sector key, or omit for all 6"),
+) -> schemas.ResearchRunOut:
+    """Run Perplexity research for one sector or all. Returns items found."""
+    from fesi.ingest.perplexity import PerplexityAdapter
+    from fesi.store.raw_items import insert_raw_items
+
+    adapter = PerplexityAdapter()
+    if not adapter.enabled:
+        raise HTTPException(status_code=400, detail="PERPLEXITY_API_KEY not set")
+
+    sectors_cfg = load_sectors()
+    if sector and sector not in sectors_cfg:
+        raise HTTPException(status_code=400, detail=f"Unknown sector: {sector}")
+
+    items = adapter.fetch(only_sector=sector)
+    with connect() as conn:
+        result = insert_raw_items(conn, items)
+
+    return schemas.ResearchRunOut(
+        sector=sector or "all",
+        items_fetched=len(items),
+        items_inserted=result["inserted"],
+        items_skipped=result["skipped"],
+    )

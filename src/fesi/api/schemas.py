@@ -136,6 +136,24 @@ class StatusOut(BaseModel):
     has_telegram: bool
 
 
+class ResearchSectorOut(BaseModel):
+    sector_key: str
+    display_name: str
+    description: str
+    query_preview: str | None = None
+    last_run_at: str | None = None
+    items_found_last_run: int = 0
+    enabled: bool = False
+    schedule: list[dict] = []
+
+
+class ResearchRunOut(BaseModel):
+    sector: str
+    items_fetched: int
+    items_inserted: int
+    items_skipped: int
+
+
 class HealthOut(BaseModel):
     status: str
     db: str

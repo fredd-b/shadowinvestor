@@ -47,12 +47,14 @@ class PerplexityAdapter(IngestAdapter):
         self.catalysts = load_catalysts()
         self.watchlist = load_watchlist()
 
-    def fetch(self) -> list[RawItem]:
+    def fetch(self, *, only_sector: str | None = None) -> list[RawItem]:
         if not self.enabled:
             log.info("perplexity_skipped_no_api_key")
             return []
 
         queries = self._build_queries()
+        if only_sector:
+            queries = [(k, p) for k, p in queries if k == only_sector]
         items: list[RawItem] = []
         for sector_key, prompt in queries:
             try:

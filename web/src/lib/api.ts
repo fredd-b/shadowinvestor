@@ -12,6 +12,8 @@ import type {
   Digest,
   PipelineRun,
   Status,
+  ResearchSector,
+  ResearchRun,
 } from "./types";
 
 const API_BASE = process.env.API_BASE_URL || "http://localhost:8765";
@@ -121,4 +123,13 @@ export async function runPipeline(params: { windowHours?: number; silent?: boole
   if (params.windowHours != null) qs.set("window_hours", String(params.windowHours));
   if (params.silent != null) qs.set("silent", String(params.silent));
   return apiFetch<PipelineRun>(`/api/pipeline/run?${qs}`, { method: "POST" });
+}
+
+export async function getResearchStatus(): Promise<ResearchSector[]> {
+  return apiFetch<ResearchSector[]>("/api/research/status");
+}
+
+export async function runResearch(sector?: string): Promise<ResearchRun> {
+  const qs = sector ? `?sector=${encodeURIComponent(sector)}` : "";
+  return apiFetch<ResearchRun>(`/api/research/run${qs}`, { method: "POST" });
 }

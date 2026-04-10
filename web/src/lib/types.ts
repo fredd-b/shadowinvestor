@@ -138,3 +138,21 @@ export type Status = {
   has_pushover: boolean;
   has_telegram: boolean;
 };
+
+export type ResearchSector = {
+  sector_key: string;
+  display_name: string;
+  description: string;
+  query_preview: string | null;
+  last_run_at: string | null;
+  items_found_last_run: number;
+  enabled: boolean;
+  schedule: { time: string; label: string }[];
+};
+
+export type ResearchRun = {
+  sector: string;
+  items_fetched: number;
+  items_inserted: number;
+  items_skipped: number;
+};

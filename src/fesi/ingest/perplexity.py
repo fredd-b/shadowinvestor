@@ -204,19 +204,32 @@ Do NOT invent events. Only report events with real sources."""
         return items
 
     def _extract_events(self, content: str) -> list[dict] | None:
-        """Try to parse JSON array of events from Perplexity's response."""
+        """Try to parse JSON array of events from Perplexity's response.
+
+        Perplexity sometimes appends prose explanation after the JSON array.
+        We try: (1) full content, (2) extract first [...] block via bracket matching.
+        """
         text = _strip_md_fences(content).strip()
         if not text:
             return []
+        # Attempt 1: parse the whole thing
         try:
             parsed = json.loads(text)
             if isinstance(parsed, list):
                 return parsed
-            log.warning("perplexity_unexpected_json_type", type=type(parsed).__name__)
-            return None
         except (json.JSONDecodeError, ValueError):
-            log.warning("perplexity_json_parse_failed", content_preview=text[:200])
-            return None
+            pass
+        # Attempt 2: extract the first JSON array by finding matched brackets
+        extracted = _extract_json_array(text)
+        if extracted is not None:
+            try:
+                parsed = json.loads(extracted)
+                if isinstance(parsed, list):
+                    return parsed
+            except (json.JSONDecodeError, ValueError):
+                pass
+        log.warning("perplexity_json_parse_failed", content_preview=text[:200])
+        return None
 
     def _fallback_item(
         self, sector_key: str, content: str, citations: list[str]
@@ -264,3 +277,19 @@ def _strip_md_fences(text: str) -> str:
     text = re.sub(r"^```(?:json)?\s*\n?", "", text.strip())
     text = re.sub(r"\n?```\s*$", "", text.strip())
     return text
+
+
+def _extract_json_array(text: str) -> str | None:
+    """Extract the first top-level [...] from text that may have trailing prose."""
+    start = text.find("[")
+    if start == -1:
+        return None
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == "[":
+            depth += 1
+        elif text[i] == "]":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+    return None

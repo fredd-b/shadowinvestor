@@ -52,7 +52,7 @@ def reset_engine() -> None:
 
 
 def _normalize_url(url: str) -> str:
-    """Resolve relative SQLite paths so the file lands in the project's data/ dir."""
+    """Resolve relative SQLite paths and ensure Postgres uses psycopg v3 dialect."""
     if url.startswith("sqlite:///./"):
         project_root = Path(__file__).parent.parent.parent
         relative = url.removeprefix("sqlite:///./")
@@ -63,6 +63,9 @@ def _normalize_url(url: str) -> str:
         path = Path(url.removeprefix("sqlite:///"))
         if path.is_absolute() or path.parent != Path("."):
             path.parent.mkdir(parents=True, exist_ok=True)
+    # postgresql:// defaults to psycopg2 dialect; we ship psycopg v3
+    if url.startswith("postgresql://") and "+psycopg" not in url:
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
 
 

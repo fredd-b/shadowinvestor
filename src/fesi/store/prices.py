@@ -26,8 +26,8 @@ def insert_price_bar(
     source: str = "yfinance",
 ) -> bool:
     """Insert one OHLCV bar. Returns True if inserted, False if duplicate."""
-    with conn.begin_nested():
-        try:
+    try:
+        with conn.begin_nested():
             conn.execute(
                 text("""
                     INSERT INTO prices (
@@ -49,8 +49,8 @@ def insert_price_bar(
                 },
             )
             return True
-        except IntegrityError:
-            return False
+    except IntegrityError:
+        return False
 
 
 def get_latest_price(conn: Connection, ticker_id: int) -> dict | None:

@@ -22,30 +22,31 @@ log = get_logger(__name__)
 def insert_raw_item(conn: Connection, item: RawItem) -> int | None:
     """Insert one raw item. Returns id, or None if duplicate (skipped silently)."""
     try:
-        result = conn.execute(
-            text("""
-                INSERT INTO raw_items (
-                    source, source_id, fetched_at, published_at,
-                    url, title, raw_payload, content_hash
-                )
-                VALUES (
-                    :source, :source_id, :fetched_at, :published_at,
-                    :url, :title, :raw_payload, :content_hash
-                )
-                RETURNING id
-            """),
-            {
-                "source": item.source,
-                "source_id": item.source_id,
-                "fetched_at": item.fetched_at.isoformat(),
-                "published_at": item.published_at.isoformat() if item.published_at else None,
-                "url": item.url,
-                "title": item.title,
-                "raw_payload": json.dumps(item.raw_payload),
-                "content_hash": item.content_hash,
-            },
-        )
-        return result.scalar_one()
+        with conn.begin_nested():
+            result = conn.execute(
+                text("""
+                    INSERT INTO raw_items (
+                        source, source_id, fetched_at, published_at,
+                        url, title, raw_payload, content_hash
+                    )
+                    VALUES (
+                        :source, :source_id, :fetched_at, :published_at,
+                        :url, :title, :raw_payload, :content_hash
+                    )
+                    RETURNING id
+                """),
+                {
+                    "source": item.source,
+                    "source_id": item.source_id,
+                    "fetched_at": item.fetched_at.isoformat(),
+                    "published_at": item.published_at.isoformat() if item.published_at else None,
+                    "url": item.url,
+                    "title": item.title,
+                    "raw_payload": json.dumps(item.raw_payload),
+                    "content_hash": item.content_hash,
+                },
+            )
+            return result.scalar_one()
     except IntegrityError:
         return None
 
@@ -59,9 +60,10 @@ def insert_raw_items(conn: Connection, items: list[RawItem]) -> dict:
     inserted = 0
     skipped = 0
     for item in items:
-        # SAVEPOINT per insert so an IntegrityError doesn't abort the outer txn
-        with conn.begin_nested():
-            try:
+        # except must be OUTSIDE begin_nested() so the context manager can
+        # ROLLBACK TO SAVEPOINT before we swallow the error (Postgres requirement)
+        try:
+            with conn.begin_nested():
                 result = conn.execute(
                     text("""
                         INSERT INTO raw_items (
@@ -87,8 +89,8 @@ def insert_raw_items(conn: Connection, items: list[RawItem]) -> dict:
                 )
                 if result.scalar_one_or_none() is not None:
                     inserted += 1
-            except IntegrityError:
-                skipped += 1
+        except IntegrityError:
+            skipped += 1
     log.info("raw_items_insert", inserted=inserted, skipped=skipped, total=len(items))
     return {"inserted": inserted, "skipped": skipped}
 

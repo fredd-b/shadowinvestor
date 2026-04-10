@@ -16,8 +16,8 @@ log = get_logger(__name__)
 def upsert_outcome_stub(conn: Connection, signal_id: int) -> int | None:
     """Create an empty outcomes row for a new signal so we can JOIN later."""
     now = datetime.now(timezone.utc).isoformat()
-    with conn.begin_nested():
-        try:
+    try:
+        with conn.begin_nested():
             result = conn.execute(
                 text("""
                     INSERT INTO outcomes (signal_id, last_updated_at, is_mature)
@@ -27,8 +27,8 @@ def upsert_outcome_stub(conn: Connection, signal_id: int) -> int | None:
                 {"signal_id": signal_id, "now": now},
             )
             return result.scalar_one()
-        except IntegrityError:
-            return None  # already exists
+    except IntegrityError:
+        return None  # already exists
 
 
 def update_outcome_for_signal(

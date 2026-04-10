@@ -38,7 +38,8 @@ fesi ingest sec-edgar          # 8-K / 6-K filings for watchlist tickers
 fesi ingest fda                # FDA OpenFDA drug submissions (intermittently 500s)
 fesi ingest clinicaltrials     # ClinicalTrials.gov v2, watchlist sponsors + China geo
 fesi ingest wires              # PR Newswire / GlobeNewswire / BusinessWire RSS feeds
-fesi ingest all                # run all 4 in sequence
+fesi ingest perplexity         # LLM web search per sector (needs PERPLEXITY_API_KEY)
+fesi ingest all                # run all 5 in sequence
 ```
 
 Each adapter is idempotent — re-running the same window inserts zero rows.
@@ -122,6 +123,7 @@ fesi
 │   ├── fda
 │   ├── clinicaltrials
 │   ├── wires
+│   ├── perplexity
 │   └── all
 ├── run-pipeline
 ├── outcomes

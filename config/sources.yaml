@@ -165,13 +165,13 @@ sources:
     display_name: "Perplexity API"
     type: llm_grounded_search
     cost: paid
-    monthly_usd: 20
+    monthly_usd: 1
     trust: 4
     rate_limit_per_minute: 60
     base_url: "https://api.perplexity.ai"
     sectors: [biotech_pharma, china_biotech_us_pipeline, ai_infrastructure, crypto_to_ai_pivot, commodities_critical_minerals, binary_event_other]
-    active: false
-    notes: "Use for live web grounding queries. Replaces Fred's manual copy-paste loop."
+    active: true
+    notes: "6 sector-specific queries per run via sonar model. ~30 queries/day, ~$0.03/day. Self-disables if no PERPLEXITY_API_KEY."
 
   # ---------- Social / alt-data ----------
 

@@ -181,6 +181,7 @@ def _ingest_all(
     from fesi.ingest import (
         clinicaltrials,
         fda_openfda,
+        perplexity,
         sec_edgar,
         wires,
     )
@@ -190,6 +191,7 @@ def _ingest_all(
         fda_openfda.FdaOpenfdaAdapter(),
         clinicaltrials.ClinicalTrialsAdapter(),
         wires.WiresAdapter(),
+        perplexity.PerplexityAdapter(),
     ]
     if only_sources:
         adapters = [a for a in adapters if a.source_key in only_sources]

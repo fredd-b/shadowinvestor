@@ -89,3 +89,19 @@ def fetch_text(
     response = client.get(url, params=params)
     response.raise_for_status()
     return response.text
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
+    reraise=True,
+)
+def post_json(
+    client: httpx.Client, url: str, *, json_body: dict[str, Any]
+) -> Any:
+    """POST JSON and return parsed response. Longer backoff for LLM APIs."""
+    log.debug("http_post_json", url=url)
+    response = client.post(url, json=json_body)
+    response.raise_for_status()
+    return response.json()

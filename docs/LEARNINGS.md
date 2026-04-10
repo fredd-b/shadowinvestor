@@ -32,6 +32,12 @@ This is Fred's project rule, not a technical one. Every change should answer "do
 ### Don't bypass the four risk gates
 Even in Phase 4 (live trading), every `buy` decision must pass: position size, concurrent positions, sector concentration, circuit breaker. The gates are the brakes. See `src/fesi/decision/risk_gates.py`.
 
+### Don't put `healthcheckPath` in `railway.toml` when you have multiple services
+`railway.toml`'s `[deploy]` section applies to ALL services built from the repo. The scheduler is not an HTTP server — it can't respond to `/health` and will fail the healthcheck every time. **Set `healthcheckPath` per-service via the Railway dashboard or GraphQL API**, not in `railway.toml`.
+
+### Don't catch `IntegrityError` inside `with conn.begin_nested():`
+See the DO's section for the full explanation. TL;DR: on Postgres, the savepoint is aborted after the failed INSERT. If you swallow the exception inside the `with`, the context manager tries to RELEASE (commit) the aborted savepoint → `InFailedSqlTransaction` poisons the entire connection. Put the `except` **outside** the `with`.
+
 ### Don't fetch sequentially when you can `Promise.all` (TS) / `asyncio.gather` (Py)
 Page load latency matters. The home and admin pages already do this. New pages should follow the pattern.
 
@@ -56,8 +62,24 @@ The Shadow Portfolio depends on this. A `no_buy` with `reason="conviction 9.0 < 
 ### DO use the deterministic classifier's `display_name` 2-grams
 When adding new catalyst types to `config/catalysts.yaml`, you don't strictly need to fill in `patterns:`. The `_patterns_for_catalyst` helper in `src/fesi/intelligence/llm.py` derives 2-grams from `display_name` so `"First Production Achieved"` becomes patterns `["first production", "production achieved"]` automatically. But adding explicit `patterns:` improves precision.
 
-### DO use the SAVEPOINT pattern for "insert with dedup"
-`raw_items` and `prices` use `with conn.begin_nested(): try: insert... except IntegrityError: pass` so a single duplicate doesn't poison the surrounding transaction. This is critical for Postgres (where IntegrityError aborts the whole txn) and works fine for SQLite. See `src/fesi/store/raw_items.py::insert_raw_items`.
+### DO use the SAVEPOINT pattern for "insert with dedup" — exception OUTSIDE the `with`
+`raw_items`, `prices`, and `outcomes` use SAVEPOINTs for dedup inserts. **Critical:** the `except IntegrityError` must be **outside** the `with conn.begin_nested()` block, not inside it. On Postgres, a failed INSERT aborts the savepoint; if you catch the error inside the `with`, the context manager tries to `RELEASE SAVEPOINT` (commit) on exit — but the savepoint is aborted, causing `InFailedSqlTransaction`. Correct pattern:
+```python
+try:
+    with conn.begin_nested():
+        conn.execute(text("INSERT ..."), params)
+except IntegrityError:
+    pass  # duplicate, fine
+```
+Wrong (breaks Postgres):
+```python
+with conn.begin_nested():
+    try:
+        conn.execute(text("INSERT ..."), params)
+    except IntegrityError:
+        pass  # swallows error but savepoint is still aborted → RELEASE fails
+```
+See `src/fesi/store/raw_items.py::insert_raw_items`.
 
 ### DO use the `raw_items_signals` junction table to find unprocessed items
 The original code used SQLite's `json_each` on `signals.raw_item_ids`. That doesn't work in Postgres (different function name) and is slow. The junction table is portable and indexed. See `src/fesi/store/raw_items.py::get_unprocessed_raw_items`.
@@ -199,6 +221,18 @@ serviceInstanceDeployV2(serviceId, environmentId, commitSha=git_rev_parse_HEAD()
 ### `web/.env.example` not committable due to `.gitignore`
 **Root cause:** `.gitignore` had `web/` excluded entirely (or `*.env*` overly broad). **Fix:** the file is not committed, but the values it would contain are documented in `docs/DEPLOYMENT.md`.
 
+### Postgres `InFailedSqlTransaction` killed every pipeline run (2026-04-10)
+**Root cause:** Two bugs compounding. (1) `insert_raw_items` caught `IntegrityError` *inside* `with conn.begin_nested()`, meaning Postgres's aborted savepoint was never rolled back — the context manager tried to RELEASE it and failed. (2) The pipeline had no SAVEPOINTs around candidate processing or decision making, so any single SQL error poisoned the entire transaction. **Fix:** moved all `except IntegrityError` outside the `with conn.begin_nested()` block in `raw_items.py`, `prices.py`, `outcomes.py`. Added `conn.begin_nested()` around each candidate and decision in `pipeline.py`. See commit `e72198a`.
+
+### Postgres used psycopg2 (missing) instead of psycopg v3 (2026-04-10)
+**Root cause:** `DATABASE_URL=postgresql://...` makes SQLAlchemy default to the `psycopg2` dialect, but we ship `psycopg[binary]>=3.2` (v3). The v2 package was never installed. **Fix:** `_normalize_url` in `db.py` now rewrites `postgresql://` to `postgresql+psycopg://` to force the v3 driver. See commit `888e227`.
+
+### Scheduler failed healthcheck because `railway.toml` applied `/health` to all services (2026-04-10)
+**Root cause:** `railway.toml` had `[deploy].healthcheckPath = "/health"` which Railway applied to every service — including the scheduler, which is a long-running APScheduler process (not an HTTP server). **Fix:** removed `healthcheckPath` from `railway.toml`, set it only on the API service via `serviceInstanceUpdate` GraphQL mutation. See commit `99cd3a6`.
+
+### `railway redeploy` reuses cached image, doesn't pull new code
+**Root cause:** `railway redeploy --service X` re-runs the most recent deployment image. If you've pushed new code to GitHub but the service was deployed via `railway up` (local code upload), redeploy just re-runs the old image. **Fix:** always use `railway up --service X` to push fresh local code.
+
 ### Initial fallback classifier returned `guidance_raise` for everything
 **Root cause:** Catalyst types had no explicit `patterns:` in `catalysts.yaml` so the matcher always scored 0 and fell through to the catch-all. **Fix:** the `_patterns_for_catalyst` helper now derives 2-grams from `display_name` automatically, so `"First Production Achieved"` matches `"first production"` in news headlines. See `src/fesi/intelligence/llm.py::_patterns_for_catalyst`.
 
@@ -222,7 +256,7 @@ serviceInstanceDeployV2(serviceId, environmentId, commitSha=git_rev_parse_HEAD()
 Every adapter inherits from `IngestAdapter` (`src/fesi/ingest/base.py`), exposes a `source_key`, implements `fetch() -> list[RawItem]`. Use the shared `get_client()` helper from `ingest/http.py` for httpx + retries. Use `RawItem.make_content_hash()` for dedup. See `sec_edgar.py` as the canonical example.
 
 ### Store-module pattern
-One module per table. Pure functions (no classes) that take a `Connection` as the first arg. Always use `text("... :name ...")` with named params (cross-DB compatible). Always wrap dedup-prone inserts in `with conn.begin_nested(): try: ... except IntegrityError:`. See `store/raw_items.py`.
+One module per table. Pure functions (no classes) that take a `Connection` as the first arg. Always use `text("... :name ...")` with named params (cross-DB compatible). Always wrap dedup-prone inserts with `try: with conn.begin_nested(): insert... except IntegrityError: pass` (**exception outside the `with`** — see DO's). See `store/raw_items.py`.
 
 ### Shadow → paper → live mode lifecycle
 The `mode` env var has three legal values: `shadow`, `paper`, `live`. The decision engine writes the mode into every `decisions` row. Check the mode before contacting any broker. Default is `shadow`. The flip is manual.

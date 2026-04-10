@@ -12,6 +12,12 @@ All notable changes to ShadowInvestor. Format loosely follows [Keep a Changelog]
 - `docs/DECISION_FRAMEWORK.md` — canonical version of the decision framework (also rendered at `/framework` in the web app)
 - `CHANGELOG.md` (this file)
 
+### Fixed
+- **CRITICAL:** SAVEPOINT pattern — `except IntegrityError` was caught inside `with conn.begin_nested()`, poisoning Postgres transactions. Moved exception handling outside the `with` block in `raw_items.py`, `prices.py`, `outcomes.py`.
+- **CRITICAL:** Postgres dialect — `postgresql://` URLs defaulted to psycopg2 (not installed). Added `_normalize_url` rewrite to `postgresql+psycopg://` for psycopg v3.
+- **Pipeline resilience** — wrapped each candidate/decision/digest phase in `conn.begin_nested()` so one failure doesn't kill the whole run.
+- **Scheduler healthcheck** — removed `healthcheckPath` from `railway.toml` (applied to all services including the non-HTTP scheduler). Set per-service via GraphQL.
+
 ### Changed
 - README.md — full rewrite to reflect Phase 1 + Phase 2 ship state (was still showing "Phase 0")
 

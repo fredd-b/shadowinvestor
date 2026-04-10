@@ -94,11 +94,12 @@ def run_pipeline(
 
         for cand in candidates:
             try:
-                sid = _process_candidate(
-                    conn, cand, catalysts, sources_cfg, stats.started_at
-                )
-                if sid is not None:
-                    signals_inserted.append(sid)
+                with conn.begin_nested():
+                    sid = _process_candidate(
+                        conn, cand, catalysts, sources_cfg, stats.started_at
+                    )
+                    if sid is not None:
+                        signals_inserted.append(sid)
             except Exception as e:
                 log.exception("candidate_processing_failed", error=str(e))
                 stats.errors.append(f"candidate: {e}")
@@ -109,47 +110,49 @@ def run_pipeline(
         from fesi.store.prices import get_latest_price
         for sid in signals_inserted:
             try:
-                signal = get_signal_by_id(conn, sid)
-                if signal is None:
-                    continue
-                outcome = make_decision(conn, signal)
-                if outcome["action"] == "buy":
-                    stats.decisions_buy += 1
-                    if signal.get("primary_ticker_id"):
-                        latest = get_latest_price(conn, signal["primary_ticker_id"])
-                        if latest is not None:
-                            execute_shadow_buy(
-                                conn,
-                                decision_id=outcome["decision_id"],
-                                ticker_id=signal["primary_ticker_id"],
-                                shares=outcome["shares"],
-                                entry_price=float(latest["close"]),
-                            )
-                else:
-                    stats.decisions_no_buy += 1
+                with conn.begin_nested():
+                    signal = get_signal_by_id(conn, sid)
+                    if signal is None:
+                        continue
+                    outcome = make_decision(conn, signal)
+                    if outcome["action"] == "buy":
+                        stats.decisions_buy += 1
+                        if signal.get("primary_ticker_id"):
+                            latest = get_latest_price(conn, signal["primary_ticker_id"])
+                            if latest is not None:
+                                execute_shadow_buy(
+                                    conn,
+                                    decision_id=outcome["decision_id"],
+                                    ticker_id=signal["primary_ticker_id"],
+                                    shares=outcome["shares"],
+                                    entry_price=float(latest["close"]),
+                                )
+                    else:
+                        stats.decisions_no_buy += 1
             except Exception as e:
                 log.exception("decision_failed", signal_id=sid, error=str(e))
                 stats.errors.append(f"decide: {e}")
 
         # ---- Phase E: Render digest ----
         try:
-            window_signals = list_signals_in_window(conn, since=since)
-            digest_md = render_digest(
-                conn,
-                signals=window_signals,
-                window_start=since,
-                window_end=stats.started_at,
-            )
-            digest_id = insert_digest(
-                conn,
-                window_start=since,
-                window_end=stats.started_at,
-                signal_count=len(window_signals),
-                decision_count=stats.decisions_buy + stats.decisions_no_buy,
-                delivered_via="pending",
-                markdown_body=digest_md,
-            )
-            stats.digest_id = digest_id
+            with conn.begin_nested():
+                window_signals = list_signals_in_window(conn, since=since)
+                digest_md = render_digest(
+                    conn,
+                    signals=window_signals,
+                    window_start=since,
+                    window_end=stats.started_at,
+                )
+                digest_id = insert_digest(
+                    conn,
+                    window_start=since,
+                    window_end=stats.started_at,
+                    signal_count=len(window_signals),
+                    decision_count=stats.decisions_buy + stats.decisions_no_buy,
+                    delivered_via="pending",
+                    markdown_body=digest_md,
+                )
+                stats.digest_id = digest_id
         except Exception as e:
             log.exception("digest_render_failed", error=str(e))
             stats.errors.append(f"digest: {e}")

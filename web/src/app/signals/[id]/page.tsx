@@ -1,5 +1,7 @@
 import { getSignal } from "@/lib/api";
+import { formatUsd } from "@/lib/format";
 import Nav from "@/components/Nav";
+import { StatTile } from "@/components/StatRow";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -62,16 +64,15 @@ export default async function SignalPage({
           )}
         </div>
 
-        {/* Scoring grid */}
         <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Stat label="Catalyst" value={signal.catalyst_type} />
-          <Stat label="Direction" value={signal.direction} />
-          <Stat label="Timeframe" value={signal.timeframe_bucket} />
-          <Stat label="Sector" value={signal.sector} />
-          <Stat label="Impact" value={`${signal.impact_score}/5`} />
-          <Stat label="Probability" value={`${signal.probability_score}/5`} />
-          <Stat label="Conviction" value={signal.conviction_score.toFixed(1)} />
-          <Stat
+          <StatTile label="Catalyst" value={signal.catalyst_type} />
+          <StatTile label="Direction" value={signal.direction} />
+          <StatTile label="Timeframe" value={signal.timeframe_bucket} />
+          <StatTile label="Sector" value={signal.sector} />
+          <StatTile label="Impact" value={`${signal.impact_score}/5`} />
+          <StatTile label="Probability" value={`${signal.probability_score}/5`} />
+          <StatTile label="Conviction" value={signal.conviction_score.toFixed(1)} />
+          <StatTile
             label="Watchlist"
             value={signal.feature_is_watchlist === 1 ? "yes" : "no"}
           />
@@ -103,7 +104,7 @@ export default async function SignalPage({
                   label="feature_market_cap_usd"
                   value={
                     signal.feature_market_cap_usd
-                      ? `$${signal.feature_market_cap_usd.toLocaleString()}`
+                      ? formatUsd(signal.feature_market_cap_usd)
                       : null
                   }
                 />
@@ -132,15 +133,6 @@ export default async function SignalPage({
         </div>
       </main>
     </>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded border border-zinc-800 bg-zinc-900 p-3">
-      <div className="text-xs uppercase text-zinc-500">{label}</div>
-      <div className="mt-1 font-mono text-sm text-zinc-100">{value}</div>
-    </div>
   );
 }
 

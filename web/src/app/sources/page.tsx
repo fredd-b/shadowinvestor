@@ -1,4 +1,5 @@
 import { getSourcesHealth } from "@/lib/api";
+import { formatTimestamp, formatCount } from "@/lib/format";
 import Nav from "@/components/Nav";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function SourcesPage() {
         <h1 className="mb-2 text-3xl font-bold">Source Health</h1>
         <p className="mb-6 text-sm text-zinc-400">
           {active.length} active · {inactive.length} inactive · total items:{" "}
-          {sources.reduce((s, x) => s + x.items_total, 0).toLocaleString()}
+          {formatCount(sources.reduce((s, x) => s + x.items_total, 0))}
         </p>
 
         <h2 className="mb-3 text-xl font-semibold">Active</h2>
@@ -41,10 +42,10 @@ export default async function SourcesPage() {
                   <td className="px-4 py-3 text-zinc-400">{s.type}</td>
                   <td className="px-4 py-3 text-right font-mono">{s.trust}/5</td>
                   <td className="px-4 py-3 text-right font-mono">
-                    {s.items_total.toLocaleString()}
+                    {formatCount(s.items_total)}
                   </td>
                   <td className="px-4 py-3 text-zinc-500">
-                    {s.last_fetch ? s.last_fetch.slice(0, 16).replace("T", " ") : "—"}
+                    {s.last_fetch ? formatTimestamp(s.last_fetch) : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {s.monthly_usd > 0 ? `$${s.monthly_usd}` : "free"}

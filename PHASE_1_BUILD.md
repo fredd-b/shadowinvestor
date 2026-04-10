@@ -1,13 +1,27 @@
 # Phase 1 Build Plan
 
+> **Status: ✅ SHIPPED 2026-04-09.** Kept as historical reference. See [`CHANGELOG.md`](CHANGELOG.md) for what actually landed.
+
 > **Goal:** Multi-source ingest + LLM-scored intraday digest delivered to Fred's phone, every signal generates a shadow decision in DB. Target window: weeks 2–4 after Phase 0 (days 8–28).
+
+## Phase 1 outcome
+
+Full pipeline runs end-to-end against real APIs:
+- 49 Python files, ~5k LOC
+- 32 passing tests
+- 4 ingest adapters wired (SEC EDGAR, FDA OpenFDA, ClinicalTrials.gov v2, RSS wires)
+- LLM classifier with deterministic fallback
+- Decision engine with 4 risk gates
+- 5x daily scheduler in Asia/Dubai timezone
+- Pushover + Telegram + file notification
+- First live run produced **5 shadow buys**, $4,952 deployed across 2 sectors, 0 errors
 
 ## Conventions
 
-- Each ticket is independently shippable
-- Each has explicit acceptance criteria
+- Each ticket was independently shippable
+- Each had explicit acceptance criteria
 - Tests required for any ticket touching the DB or LLM
-- Order is roughly the order to build them — lower numbers first
+- Order was roughly the order to build them — lower numbers first
 - "DoD" = Definition of Done
 
 ---

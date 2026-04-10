@@ -1,18 +1,8 @@
 """Provision the shadowinvestor stack on Railway via GraphQL.
 
-The Railway CLI is buggy in this environment (write-op auth token issue),
-so this script bypasses it and talks directly to backboard.railway.com
+The Railway CLI's write-op auth flow is broken in non-interactive environments,
+so this script bypasses the CLI and talks directly to backboard.railway.com
 using the access token stored in ~/.railway/config.json.
-
-Operations performed:
-  1. Look up the project + production environment
-  2. Create the Postgres service (from Railway's managed template image)
-  3. Create the API service (from the GitHub repo)
-  4. Create the scheduler service (same repo, different start command)
-  5. Set env vars on the API + scheduler services
-  6. Deploy each service
-  7. Generate a public domain for the API
-  8. Print summary with the deployed URL
 """
 from __future__ import annotations
 
@@ -59,7 +49,10 @@ def gql(token: str, query: str, variables: dict[str, Any] | None = None) -> dict
     response.raise_for_status()
     data = response.json()
     if "errors" in data and data["errors"]:
-        raise RuntimeError(f"GraphQL errors: {json.dumps(data['errors'], indent=2)}")
+        first = data["errors"][0]
+        msg = first.get("message", "unknown")
+        path = ".".join(str(p) for p in first.get("path", []))
+        raise RuntimeError(f"{msg} (at {path})" if path else msg)
     return data["data"]
 
 
@@ -284,7 +277,7 @@ def main() -> None:
     }
     for k, v in common_vars.items():
         upsert_variable(token, PROJECT_ID, env_id, api_id, k, v)
-        upsert_variable(token, PROJECT_ID, env_id, env_id and sched_id, k, v)
+        upsert_variable(token, PROJECT_ID, env_id, sched_id, k, v)
     print(f"  ✓ set {len(common_vars)} vars on api + scheduler")
 
     # Override scheduler start command

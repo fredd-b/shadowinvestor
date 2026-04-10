@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -68,7 +68,11 @@ class Settings(BaseSettings):
     api_token: str = ""
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     api_host: str = "0.0.0.0"
-    api_port: int = 8000
+    # Railway sets PORT, fall back to API_PORT for local dev, then 8000
+    api_port: int = Field(
+        default=8000,
+        validation_alias=AliasChoices("PORT", "API_PORT"),
+    )
 
 
 def get_settings() -> Settings:

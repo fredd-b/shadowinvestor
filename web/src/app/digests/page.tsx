@@ -1,4 +1,5 @@
 import { getDigests } from "@/lib/api";
+import { formatTimestamp } from "@/lib/format";
 import Nav from "@/components/Nav";
 import Link from "next/link";
 
@@ -31,10 +32,10 @@ export default async function DigestsPage() {
                 {digests.map((d) => (
                   <tr key={d.id} className="border-t border-zinc-800">
                     <td className="px-4 py-3 text-zinc-300">
-                      {d.sent_at.slice(0, 16).replace("T", " ")}
+                      {formatTimestamp(d.sent_at)}
                     </td>
                     <td className="px-4 py-3 text-zinc-500">
-                      {d.scan_window_start.slice(5, 16).replace("T", " ")} →{" "}
+                      {formatTimestamp(d.scan_window_start)} →{" "}
                       {d.scan_window_end.slice(11, 16)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">

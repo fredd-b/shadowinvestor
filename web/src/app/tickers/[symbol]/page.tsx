@@ -1,4 +1,5 @@
 import { getTicker, getTickerSignals } from "@/lib/api";
+import { formatTimestamp } from "@/lib/format";
 import Nav from "@/components/Nav";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -65,7 +66,7 @@ export default async function TickerPage({
                 {signals.map((s) => (
                   <tr key={s.id} className="border-t border-zinc-800">
                     <td className="px-4 py-3 text-zinc-500">
-                      {s.created_at.slice(5, 16).replace("T", " ")}
+                      {formatTimestamp(s.created_at)}
                     </td>
                     <td className="px-4 py-3 text-zinc-400">{s.catalyst_type}</td>
                     <td className="px-4 py-3 text-right font-mono">

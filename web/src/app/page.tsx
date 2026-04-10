@@ -1,4 +1,5 @@
 import { getSignals, getStatus } from "@/lib/api";
+import { formatTimestamp } from "@/lib/format";
 import Nav from "@/components/Nav";
 import Link from "next/link";
 
@@ -106,7 +107,7 @@ export default async function HomePage({
                       className="border-t border-zinc-800 hover:bg-zinc-900/50"
                     >
                       <td className="px-4 py-3 text-zinc-500">
-                        {s.created_at.slice(5, 16).replace("T", " ")}
+                        {formatTimestamp(s.created_at)}
                       </td>
                       <td className="px-4 py-3">
                         {s.ticker_symbol ? (

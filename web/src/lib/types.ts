@@ -1,6 +1,16 @@
 // TypeScript types mirroring src/fesi/api/schemas.py
 // Keep in sync when the API schemas change.
 
+export type Mode = "shadow" | "paper" | "live";
+export type Action = "buy" | "no_buy" | "sell" | "hold";
+export type Sector =
+  | "biotech_pharma"
+  | "china_biotech_us_pipeline"
+  | "ai_infrastructure"
+  | "crypto_to_ai_pivot"
+  | "commodities_critical_minerals"
+  | "binary_event_other";
+
 export type Signal = {
   id: number;
   created_at: string;

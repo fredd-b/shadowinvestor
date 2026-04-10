@@ -1,5 +1,7 @@
 import { getStatus, getPortfolio, getSourcesHealth } from "@/lib/api";
+import { formatCount, formatUsd } from "@/lib/format";
 import Nav from "@/components/Nav";
+import { StatRow } from "@/components/StatRow";
 import RunPipelineButton from "./RunPipelineButton";
 
 export const dynamic = "force-dynamic";
@@ -24,103 +26,58 @@ export default async function AdminPage() {
         </p>
 
         <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2">
-          {/* System status card */}
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
             <h2 className="mb-4 text-lg font-semibold">System</h2>
             <dl className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Mode</dt>
-                <dd className="font-mono text-zinc-100">{status?.mode ?? "?"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Environment</dt>
-                <dd className="font-mono text-zinc-100">
-                  {status?.environment ?? "?"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Timezone</dt>
-                <dd className="font-mono text-zinc-100">
-                  {status?.timezone ?? "?"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Version</dt>
-                <dd className="font-mono text-zinc-100">{status?.version ?? "?"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">LLM scorer</dt>
-                <dd
-                  className={`font-mono ${
-                    status?.has_anthropic ? "text-green-400" : "text-yellow-400"
-                  }`}
-                >
-                  {status?.has_anthropic ? "claude" : "fallback (no key)"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Pushover</dt>
-                <dd
-                  className={`font-mono ${
-                    status?.has_pushover ? "text-green-400" : "text-zinc-500"
-                  }`}
-                >
-                  {status?.has_pushover ? "configured" : "off"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Telegram</dt>
-                <dd
-                  className={`font-mono ${
-                    status?.has_telegram ? "text-green-400" : "text-zinc-500"
-                  }`}
-                >
-                  {status?.has_telegram ? "configured" : "off"}
-                </dd>
-              </div>
+              <StatRow label="Mode" value={status?.mode ?? "?"} />
+              <StatRow label="Environment" value={status?.environment ?? "?"} />
+              <StatRow label="Timezone" value={status?.timezone ?? "?"} />
+              <StatRow label="Version" value={status?.version ?? "?"} />
+              <StatRow
+                label="LLM scorer"
+                value={status?.has_anthropic ? "claude" : "fallback (no key)"}
+                tone={status?.has_anthropic ? "good" : "warn"}
+              />
+              <StatRow
+                label="Pushover"
+                value={status?.has_pushover ? "configured" : "off"}
+                tone={status?.has_pushover ? "good" : "default"}
+              />
+              <StatRow
+                label="Telegram"
+                value={status?.has_telegram ? "configured" : "off"}
+                tone={status?.has_telegram ? "good" : "default"}
+              />
             </dl>
           </div>
 
-          {/* Stats card */}
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
             <h2 className="mb-4 text-lg font-semibold">Stats</h2>
             <dl className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Active sources</dt>
-                <dd className="font-mono text-zinc-100">
-                  {activeSources}/{sources.length}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Raw items collected</dt>
-                <dd className="font-mono text-zinc-100">
-                  {totalRawItems.toLocaleString()}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Open buys (shadow)</dt>
-                <dd className="font-mono text-zinc-100">
-                  {portfolio?.open_buy_count ?? 0}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Deployed this month</dt>
-                <dd className="font-mono text-zinc-100">
-                  ${portfolio?.deployed_this_month_usd?.toFixed(0) ?? "0"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Monthly cap</dt>
-                <dd className="font-mono text-zinc-100">
-                  ${portfolio?.monthly_cap_usd?.toFixed(0) ?? "0"}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-zinc-500">Cap used</dt>
-                <dd className="font-mono text-zinc-100">
-                  {portfolio?.cap_used_pct?.toFixed(0) ?? "0"}%
-                </dd>
-              </div>
+              <StatRow
+                label="Active sources"
+                value={`${activeSources}/${sources.length}`}
+              />
+              <StatRow
+                label="Raw items collected"
+                value={formatCount(totalRawItems)}
+              />
+              <StatRow
+                label="Open buys (shadow)"
+                value={portfolio?.open_buy_count ?? 0}
+              />
+              <StatRow
+                label="Deployed this month"
+                value={formatUsd(portfolio?.deployed_this_month_usd ?? 0)}
+              />
+              <StatRow
+                label="Monthly cap"
+                value={formatUsd(portfolio?.monthly_cap_usd ?? 0)}
+              />
+              <StatRow
+                label="Cap used"
+                value={`${portfolio?.cap_used_pct?.toFixed(0) ?? "0"}%`}
+              />
             </dl>
           </div>
         </div>

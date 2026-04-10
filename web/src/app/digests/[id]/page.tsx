@@ -1,4 +1,5 @@
 import { getDigest } from "@/lib/api";
+import { formatTimestamp } from "@/lib/format";
 import Nav from "@/components/Nav";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -31,7 +32,7 @@ export default async function DigestPage({
         <div className="mt-2 mb-6">
           <h1 className="text-3xl font-bold">Digest #{digest.id}</h1>
           <p className="text-sm text-zinc-400">
-            {digest.sent_at.slice(0, 16).replace("T", " ")} · {digest.signal_count}{" "}
+            {formatTimestamp(digest.sent_at)} · {digest.signal_count}{" "}
             signals · {digest.decision_count} decisions
           </p>
         </div>

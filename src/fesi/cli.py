@@ -267,14 +267,12 @@ def api() -> None:
 def api_run(host: str | None, port: int | None, reload: bool) -> None:
     """Start the FastAPI server (uvicorn).
 
-    Port resolution priority: --port flag > $PORT env (Railway) > $API_PORT env > 8000.
-    Host: --host flag > $API_HOST env > 0.0.0.0.
+    Port resolution: --port flag > Settings.api_port (which reads $PORT > $API_PORT > 8000).
     """
-    import os
     import uvicorn
     from fesi.config import get_settings
     s = get_settings()
-    actual_port = port or int(os.environ.get("PORT") or s.api_port)
+    actual_port = port or s.api_port
     actual_host = host or s.api_host
     click.echo(f"FESI API starting on {actual_host}:{actual_port}")
     uvicorn.run(

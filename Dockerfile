@@ -35,12 +35,7 @@ RUN mkdir -p data logs models
 # Default port (Railway sets $PORT)
 EXPOSE 8000
 
-# Health check uses the /health endpoint
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS "http://localhost:${PORT:-8000}/health" || exit 1
-
-# Default command starts the API via the fesi CLI, which reads $PORT directly
-# from os.environ in Python. Pure exec form, no shell expansion needed —
-# avoids Railway's runtime treating shell-form CMD as literal exec args.
-# The scheduler service overrides this with `fesi schedule run`.
+# Railway runs its own /health probe (configured in railway.toml).
+# The fesi CLI entrypoint reads $PORT from os.environ — pure exec form,
+# no shell needed. Scheduler service overrides this with `fesi schedule run`.
 CMD ["fesi", "api", "run"]

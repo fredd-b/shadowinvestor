@@ -1,4 +1,5 @@
 import { getPortfolio, getDecisions } from "@/lib/api";
+import { formatTimestamp, formatUsd, formatPrice } from "@/lib/format";
 import Nav from "@/components/Nav";
 import Link from "next/link";
 
@@ -35,17 +36,16 @@ export default async function PortfolioPage() {
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-5">
             <div className="text-xs uppercase text-zinc-500">Deployed (lifetime)</div>
             <div className="mt-2 text-2xl font-bold">
-              ${portfolio.deployed_total_usd.toLocaleString()}
+              {formatUsd(portfolio.deployed_total_usd)}
             </div>
           </div>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-5">
             <div className="text-xs uppercase text-zinc-500">This month</div>
             <div className="mt-2 text-2xl font-bold">
-              ${portfolio.deployed_this_month_usd.toLocaleString()}
+              {formatUsd(portfolio.deployed_this_month_usd)}
             </div>
             <div className="mt-1 text-xs text-zinc-500">
-              {portfolio.cap_used_pct.toFixed(0)}% of $
-              {portfolio.monthly_cap_usd.toLocaleString()} cap
+              {portfolio.cap_used_pct.toFixed(0)}% of {formatUsd(portfolio.monthly_cap_usd)} cap
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800">
               <div
@@ -79,7 +79,7 @@ export default async function PortfolioPage() {
                     <tr key={sec} className="border-t border-zinc-800">
                       <td className="px-4 py-3 text-zinc-300">{sec}</td>
                       <td className="px-4 py-3 text-right font-mono">
-                        ${amt.toLocaleString()}
+                        {formatUsd(amt)}
                       </td>
                       <td className="px-4 py-3 text-right text-zinc-500">
                         {((amt / portfolio.monthly_cap_usd) * 100).toFixed(0)}%
@@ -115,7 +115,7 @@ export default async function PortfolioPage() {
                   {decisions.map((d) => (
                     <tr key={d.id} className="border-t border-zinc-800">
                       <td className="px-4 py-3 text-zinc-500">
-                        {d.decided_at.slice(5, 16).replace("T", " ")}
+                        {formatTimestamp(d.decided_at)}
                       </td>
                       <td className="px-4 py-3">
                         {d.ticker_symbol ? (
@@ -134,16 +134,16 @@ export default async function PortfolioPage() {
                         {d.conviction_score.toFixed(1)}
                       </td>
                       <td className="px-4 py-3 text-right font-mono">
-                        ${d.intended_position_usd?.toFixed(0) ?? "—"}
+                        {formatUsd(d.intended_position_usd)}
                       </td>
                       <td className="px-4 py-3 text-right text-zinc-400">
-                        ${d.intended_entry_price?.toFixed(2) ?? "—"}
+                        {formatPrice(d.intended_entry_price)}
                       </td>
                       <td className="px-4 py-3 text-right text-red-400">
-                        ${d.intended_stop_loss?.toFixed(2) ?? "—"}
+                        {formatPrice(d.intended_stop_loss)}
                       </td>
                       <td className="px-4 py-3 text-right text-green-400">
-                        ${d.intended_target?.toFixed(2) ?? "—"}
+                        {formatPrice(d.intended_target)}
                       </td>
                     </tr>
                   ))}

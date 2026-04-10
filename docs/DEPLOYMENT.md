@@ -61,7 +61,9 @@ The dashboard is live but every API call will fail until Railway is up. That's f
 
 ### 3. Railway project
 
-The Railway CLI's write-op auth flow is broken in non-interactive environments — `railway whoami` works but `railway add`, `railway up`, and `railway variables --set` return "Unauthorized" even with a fresh token. **Workaround:** use `scripts/railway_deploy.py` which talks to the Railway GraphQL API directly using the access token from `~/.railway/config.json`.
+The Railway CLI works when properly authenticated. If write-ops fail ("Unauthorized") while `railway whoami` works, re-run `railway login`. For initial provisioning, `scripts/railway_deploy.py` talks to the Railway GraphQL API directly.
+
+**Deploying code updates:** Always use `railway up --service <name>` (NOT `railway redeploy` which reuses the cached image without pulling new code). Set env vars with `railway variable set KEY=value --service <name>`.
 
 ```bash
 # Step 1: log in interactively (one time, required to populate ~/.railway/config.json)
@@ -154,10 +156,11 @@ Required env vars (set by `scripts/railway_deploy.py`):
 - `PORT` — auto-injected by Railway, read by `Settings.api_port`
 
 Optional env vars (enable upgrades):
-- `ANTHROPIC_API_KEY` — upgrades classifier from deterministic fallback to Claude
+- `ANTHROPIC_API_KEY` — upgrades classifier from deterministic fallback to Claude (**set in prod** as of 2026-04-10)
+- `PERPLEXITY_API_KEY` — enables Perplexity web search as 5th ingest source (**set in prod** as of 2026-04-10)
 - `PUSHOVER_USER_KEY` + `PUSHOVER_APP_TOKEN` — urgent push alerts
 - `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` — digest delivery
-- `POLYGON_API_KEY` — paid news source (Phase 2 add)
+- `POLYGON_API_KEY` — paid news source (future add)
 
 ### Railway service: `shadowinvestor-scheduler`
 

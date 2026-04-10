@@ -26,7 +26,7 @@ See `config/sectors.yaml` for full definitions.
 ## How a signal becomes a buy (7 steps)
 
 ### 1. Multi-source ingest
-SEC EDGAR (8-K/6-K), FDA OpenFDA, ClinicalTrials.gov v2, and 5 press wire RSS feeds (PR Newswire health/energy/financial, GlobeNewswire, BusinessWire) are fetched 5x daily in UAE timezone (15:00, 18:00, 22:00, 02:00, 08:00).
+SEC EDGAR (8-K/6-K), FDA OpenFDA, ClinicalTrials.gov v2, 5 press wire RSS feeds (PR Newswire health/energy/financial, GlobeNewswire, BusinessWire), and **Perplexity LLM web search** (6 sector-specific queries per run) are fetched 5x daily in UAE timezone (15:00, 18:00, 22:00, 02:00, 08:00). Perplexity is the only adapter that can discover tickers not already on the watchlist.
 
 ### 2. Normalize + cross-source dedup
 Items with title similarity ≥ 0.85 are merged into one candidate signal. Source count and source diversity become ML features on the resulting signal row.
@@ -34,8 +34,8 @@ Items with title similarity ≥ 0.85 are merged into one candidate signal. Sourc
 ### 3. Classify + score
 Each candidate is classified into one of 28 catalyst types from `config/catalysts.yaml` (FDA approval, Phase 3 readout, offtake signing, mine first production, AI compute contract win, etc.) and scored on impact (1–5) × probability (1–5).
 
-- Uses Claude when `ANTHROPIC_API_KEY` is set
-- Falls back to deterministic pattern matching when no key — the entire pipeline runs end-to-end without Claude
+- Uses **Claude** when `ANTHROPIC_API_KEY` is set (active in production as of 2026-04-10)
+- Falls back to deterministic pattern matching when no key — the entire pipeline runs end-to-end without Claude (used for local dev and CI)
 
 ### 4. Cross-reference boost
 Single source: `1.00×`. Two distinct sources: `1.15×`. Three+ sources OR any regulatory source: `1.30×`.

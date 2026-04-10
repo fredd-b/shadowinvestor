@@ -9,7 +9,7 @@
 | **Backend API** | https://shadowinvestor-api-production.up.railway.app |
 | **Repo** | https://github.com/fredd-b/shadowinvestor (public) |
 | **Mode** | `shadow` (no live broker contact) |
-| **Tests** | 32 passing |
+| **Tests** | 40 passing |
 
 ---
 
@@ -54,7 +54,8 @@ See [`docs/DECISION_FRAMEWORK.md`](docs/DECISION_FRAMEWORK.md) for the full miss
 | Postgres driver | psycopg v3 | strict about `postgresql://` not `postgres://` |
 | Scheduler | APScheduler | in-process cron, configured for `Asia/Dubai` |
 | HTTP client | httpx + tenacity | retries with exponential backoff |
-| LLM | Anthropic Claude (optional) | with deterministic fallback so no key needed |
+| LLM | Anthropic Claude (primary) | deterministic fallback when no key; Claude active in prod |
+| Discovery | Perplexity API (sonar) | LLM-grounded web search, 6 sector queries per run |
 | Market data | yfinance | use `Ticker.history()` not `download()` — see LEARNINGS |
 | CLI | click | `fesi` command tree |
 | Logging | structlog | JSON-friendly structured logs |
@@ -112,7 +113,8 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture and
 │   │   ├── sec_edgar.py          # 8-K/6-K via EDGAR submissions JSON, CIK cache
 │   │   ├── fda_openfda.py        # drug submissions
 │   │   ├── clinicaltrials.py     # CT.gov v2 (sponsor + China geo filters)
-│   │   └── wires.py              # 5 RSS feeds, browser UA, keyword filter
+│   │   ├── wires.py              # 5 RSS feeds, browser UA, keyword filter
+│   │   └── perplexity.py         # Perplexity web search, 6 sector queries/run
 │   ├── intelligence/
 │   │   ├── llm.py                # Claude classifier+scorer + deterministic fallback
 │   │   ├── classifier.py         # public interface
@@ -145,7 +147,8 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture and
 │   ├── test_cross_ref.py         # corroboration boost (4 tests)
 │   ├── test_decision_engine.py   # buy/no_buy + sizing + gates (7 tests)
 │   ├── test_digest_render.py     # markdown rendering (4 tests)
-│   └── test_pipeline_e2e.py      # synthetic raw_items → digest (2 tests)
+│   ├── test_pipeline_e2e.py      # synthetic raw_items → digest (2 tests)
+│   └── test_perplexity_adapter.py  # Perplexity adapter (8 tests)
 ├── web/                          # Next.js 16 frontend (deployed to Vercel)
 │   ├── src/proxy.ts              # password gate (Next 16: was middleware.ts)
 │   ├── src/lib/api.ts            # typed API client → Railway
@@ -275,9 +278,10 @@ Long-term context (architecture decisions, project history) also lives in `~/.cl
 | Phase | Status | Goal |
 |---|---|---|
 | **0 — Foundation** | ✅ done | Schema, configs, scaffold, broker decision |
-| **1 — Signal pipeline + Shadow Portfolio** | ✅ done | Multi-source ingest, classifier, decision engine, digest, scheduler. 32 tests, first live run produced 5 shadow buys. |
+| **1 — Signal pipeline + Shadow Portfolio** | ✅ done | Multi-source ingest, classifier, decision engine, digest, scheduler. First live run produced 5 shadow buys. |
 | **2 — Production deployment** | ✅ done | SQLAlchemy abstraction, FastAPI HTTP layer, Next.js 16 frontend, Docker, Railway + Vercel deployed. |
 | **2.5 — Code review + polish** | ✅ done | Triple-agent review pass, shared formatters/components, typed unions, fixed deploy bugs. |
+| **2.6 — Production hardening + Perplexity** | ✅ done | Postgres SAVEPOINT fixes, psycopg v3 dialect, Perplexity adapter (5th source), Claude classifier active in prod. 40 tests. |
 | **3 — ML calibration loop** | ⏳ planned | GBM scorer trained on accumulated shadow data; A/B against LLM-only scoring |
 | **4 — Gated live execution via IBKR** | ⏳ gated | IBKR adapter, kill switch, manual approval for first 10 trades |
 

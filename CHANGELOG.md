@@ -2,24 +2,29 @@
 
 All notable changes to ShadowInvestor. Format loosely follows [Keep a Changelog](https://keepachangelog.com/) and uses semantic-ish dating since we're pre-1.0.
 
-## [Unreleased] — 2026-04-10
+## [Phase 2.6] — 2026-04-10
 
 ### Added
-- `docs/LEARNINGS.md` — institutional memory: do's, don'ts, gotchas, decisions, what broke and how it was fixed, constraints, patterns that work
-- `docs/ARCHITECTURE.md` — full system architecture, service responsibilities, data flow, schema overview, tech stack rationale
-- `docs/DEPLOYMENT.md` — Railway + Vercel deployment guide, including the GraphQL workaround for the broken Railway CLI auth
-- `docs/CLI.md` — full `fesi` CLI command reference with workflows
-- `docs/DECISION_FRAMEWORK.md` — canonical version of the decision framework (also rendered at `/framework` in the web app)
-- `CHANGELOG.md` (this file)
+- **Perplexity API ingest adapter** — 5th data source. LLM-grounded web search with 6 sector-specific queries per pipeline run (~30 queries/day, ~$0.03/day with `sonar` model). Self-disables if `PERPLEXITY_API_KEY` is not set.
+- `src/fesi/ingest/perplexity.py` — new adapter with structured JSON output, bracket-matching fallback parser for trailing prose, cross-source dedup via normalize layer
+- `src/fesi/ingest/http.py::post_json()` — shared POST helper with tenacity retry (longer backoff for LLM APIs)
+- `fesi ingest perplexity` CLI command
+- `tests/test_perplexity_adapter.py` — 8 new tests (40 total, was 32)
+- `docs/LEARNINGS.md` — institutional memory: do's, don'ts, gotchas, decisions, what broke
+- `docs/ARCHITECTURE.md`, `docs/CLI.md`, `docs/DEPLOYMENT.md`, `docs/DECISION_FRAMEWORK.md`, `CHANGELOG.md`
 
 ### Fixed
 - **CRITICAL:** SAVEPOINT pattern — `except IntegrityError` was caught inside `with conn.begin_nested()`, poisoning Postgres transactions. Moved exception handling outside the `with` block in `raw_items.py`, `prices.py`, `outcomes.py`.
 - **CRITICAL:** Postgres dialect — `postgresql://` URLs defaulted to psycopg2 (not installed). Added `_normalize_url` rewrite to `postgresql+psycopg://` for psycopg v3.
 - **Pipeline resilience** — wrapped each candidate/decision/digest phase in `conn.begin_nested()` so one failure doesn't kill the whole run.
 - **Scheduler healthcheck** — removed `healthcheckPath` from `railway.toml` (applied to all services including the non-HTTP scheduler). Set per-service via GraphQL.
+- **Perplexity parser** — hardened JSON extraction with bracket-matching fallback when Perplexity appends prose after JSON arrays
+- **Code dedup** — extracted `strip_md_fence()` as a shared public function in `llm.py` (was duplicated in perplexity.py)
 
 ### Changed
 - README.md — full rewrite to reflect Phase 1 + Phase 2 ship state (was still showing "Phase 0")
+- **Claude classifier now primary in production** — `ANTHROPIC_API_KEY` set on Railway, Claude is the primary classification path (deterministic fallback remains for local dev / CI)
+- **Production fully operational** — Railway API + scheduler + Postgres all running, 186+ signals in prod DB, scheduler firing 5x/day
 
 ## [Phase 2.5] — 2026-04-09
 

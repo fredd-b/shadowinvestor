@@ -7,14 +7,14 @@ ShadowInvestor is a personal catalyst-driven trading signal system. This doc exp
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                            DATA SOURCES                                │
-│   SEC EDGAR  ·  FDA OpenFDA  ·  ClinicalTrials.gov v2  ·  RSS wires    │
-│   (PR Newswire, GlobeNewswire, BusinessWire — health/energy/financial) │
+│   SEC EDGAR · FDA OpenFDA · ClinicalTrials.gov v2 · RSS wires          │
+│   Perplexity web search (6 sector queries per run via sonar model)     │
 └────────────────────────────────┬───────────────────────────────────────┘
                                  │ httpx + retries + rate limits
                                  ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                          INGEST LAYER                                  │
-│  src/fesi/ingest/{sec_edgar,fda_openfda,clinicaltrials,wires}.py       │
+│  src/fesi/ingest/{sec_edgar,fda_openfda,clinicaltrials,wires,perplexity}.py │
 │  Each adapter: fetch → list[RawItem] → store/raw_items.py              │
 │  Dedup by (source, source_id) UNIQUE + content_hash                    │
 └────────────────────────────────┬───────────────────────────────────────┘
@@ -106,8 +106,8 @@ ShadowInvestor is a personal catalyst-driven trading signal system. This doc exp
 | `store/*.py` | Pure-function CRUD per table (`tickers`, `raw_items`, `signals`, `decisions`, `prices`, `outcomes`, `digests`) |
 | `ingest/base.py` | `IngestAdapter` ABC + `RawItem` dataclass |
 | `ingest/http.py` | Shared httpx client with retries, rate limits, SEC-friendly UA |
-| `ingest/{sec_edgar,fda_openfda,clinicaltrials,wires}.py` | One adapter per source |
-| `intelligence/llm.py` | Claude API + deterministic fallback for `classify()` and `score()` |
+| `ingest/{sec_edgar,fda_openfda,clinicaltrials,wires,perplexity}.py` | One adapter per source. Perplexity does LLM-grounded web search (6 sector queries/run). |
+| `intelligence/llm.py` | Claude API (primary in prod) + deterministic fallback for `classify()` and `score()` |
 | `intelligence/normalize.py` | Fuzzy-title dedup → `CandidateSignal` groups |
 | `intelligence/classifier.py` | Public interface (thin wrapper around llm.py) |
 | `intelligence/scorer.py` | Public interface |
@@ -175,7 +175,7 @@ ShadowInvestor is a personal catalyst-driven trading signal system. This doc exp
 
 ```
 1. ops/pipeline.py::run_pipeline() called by scheduler or `fesi run-pipeline`
-2. For each adapter in [sec_edgar, fda_openfda, clinicaltrials, wires]:
+2. For each adapter in [sec_edgar, fda_openfda, clinicaltrials, wires, perplexity]:
      adapter.fetch() → list[RawItem]
      store/raw_items.insert_raw_items(items)  # SAVEPOINT-wrapped, IntegrityError = dedup
 3. store/raw_items.get_unprocessed_raw_items(since)

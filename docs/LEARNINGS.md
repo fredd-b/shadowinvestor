@@ -81,6 +81,12 @@ with conn.begin_nested():
 ```
 See `src/fesi/store/raw_items.py::insert_raw_items`.
 
+### DO use `strip_md_fence()` from `intelligence/llm.py` for LLM output cleanup
+This is the shared function for removing ````json ... ```` wrappers from LLM responses. It's used by both the Claude classifier and the Perplexity adapter. Do NOT duplicate it — import from `fesi.intelligence.llm`.
+
+### DO ask Perplexity for JSON output, not prose
+The Perplexity adapter prompts sonar to return a JSON array of event objects. This makes parsing deterministic. When Perplexity appends prose after the JSON (common), `_extract_json_array()` uses bracket-matching to extract just the array. If that fails too, a single fallback RawItem wraps the prose. See `src/fesi/ingest/perplexity.py::_extract_events`.
+
 ### DO use the `raw_items_signals` junction table to find unprocessed items
 The original code used SQLite's `json_each` on `signals.raw_item_ids`. That doesn't work in Postgres (different function name) and is slow. The junction table is portable and indexed. See `src/fesi/store/raw_items.py::get_unprocessed_raw_items`.
 
@@ -244,7 +250,7 @@ serviceInstanceDeployV2(serviceId, environmentId, commitSha=git_rev_parse_HEAD()
 - **Max $2,000 per trade, max $10,000 deployed per month.** Position sizing scales conviction → size, capped at $2,000. Monthly cap is enforced by the circuit-breaker risk gate.
 - **UAE timezone (Asia/Dubai).** Scheduler runs at 15:00, 18:00, 22:00, 02:00, 08:00 UAE time. All timestamps stored as UTC in the DB; UAE-localized only for display.
 - **Personal use, single user.** No multi-tenancy, no user accounts, password gate is sufficient.
-- **Free or near-free data sources during calibration.** SEC EDGAR, FDA OpenFDA, ClinicalTrials.gov, RSS wires — all free. Polygon ($29/mo) and Endpoints News ($18/mo) are budget-approved adds for Phase 2 if needed.
+- **Free or near-free data sources during calibration.** SEC EDGAR, FDA OpenFDA, ClinicalTrials.gov, RSS wires — all free. Perplexity sonar — ~$1/mo at 30 queries/day. Polygon ($29/mo) and Endpoints News ($18/mo) are budget-approved future adds.
 - **Vercel hobby tier + Railway base plan.** Total infra cost target: under $20/mo before any data subscriptions.
 - **Python 3.12+ required.** SQLAlchemy 2.0, pydantic v2 features, and `from __future__ import annotations` patterns assume modern Python. macOS system Python (3.9) is too old — use `uv python install 3.12`.
 
@@ -253,7 +259,7 @@ serviceInstanceDeployV2(serviceId, environmentId, commitSha=git_rev_parse_HEAD()
 ## Patterns that work (use these)
 
 ### Ingest adapter pattern
-Every adapter inherits from `IngestAdapter` (`src/fesi/ingest/base.py`), exposes a `source_key`, implements `fetch() -> list[RawItem]`. Use the shared `get_client()` helper from `ingest/http.py` for httpx + retries. Use `RawItem.make_content_hash()` for dedup. See `sec_edgar.py` as the canonical example.
+Every adapter inherits from `IngestAdapter` (`src/fesi/ingest/base.py`), exposes a `source_key`, implements `fetch() -> list[RawItem]`. Use the shared `get_client()` helper from `ingest/http.py` for httpx + retries (use `post_json()` for POST APIs like Perplexity). Use `RawItem.make_content_hash()` for dedup. If the adapter requires an API key, self-disable in `__init__` and return `[]` from `fetch()` (see `perplexity.py` for the pattern). See `sec_edgar.py` as the canonical example for ticker-centric adapters, `perplexity.py` for LLM-based sector-query adapters.
 
 ### Store-module pattern
 One module per table. Pure functions (no classes) that take a `Connection` as the first arg. Always use `text("... :name ...")` with named params (cross-DB compatible). Always wrap dedup-prone inserts with `try: with conn.begin_nested(): insert... except IntegrityError: pass` (**exception outside the `with`** — see DO's). See `store/raw_items.py`.

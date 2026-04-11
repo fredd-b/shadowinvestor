@@ -1,7 +1,8 @@
-import { getResearchStatus } from "@/lib/api";
+import { getResearchStatus, getResearchTopics, getTickers } from "@/lib/api";
 import { formatTimestamp } from "@/lib/format";
 import Nav from "@/components/Nav";
 import RunResearchButton from "./RunResearchButton";
+import TopicManager from "./TopicManager";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,15 @@ const SECTOR_ICONS: Record<string, string> = {
 };
 
 export default async function ResearchPage() {
-  const sectors = await getResearchStatus().catch(() => []);
+  const [sectors, topics, tickers] = await Promise.all([
+    getResearchStatus().catch(() => []),
+    getResearchTopics().catch(() => []),
+    getTickers(true).catch(() => []),
+  ]);
   const schedule = sectors[0]?.schedule ?? [];
+  const dailyResearchTickers = tickers.filter(
+    (t) => t.lifecycle_status === "invested" || t.lifecycle_status === "considering"
+  );
 
   return (
     <>
@@ -26,7 +34,7 @@ export default async function ResearchPage() {
           <div>
             <h1 className="text-3xl font-bold">Research</h1>
             <p className="text-sm text-zinc-400">
-              Perplexity web search across 6 sectors. Run individually or all at once.
+              Automated discovery across sectors, custom topics, and per-ticker monitoring.
             </p>
           </div>
           <RunResearchButton label="Run All Sectors" />
@@ -50,7 +58,8 @@ export default async function ResearchPage() {
         </div>
 
         {/* Sector cards */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <h2 className="mb-3 text-lg font-semibold">Sector Research (6 sectors × 5 runs/day)</h2>
+        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {sectors.map((s) => (
             <div
               key={s.sector_key}
@@ -79,12 +88,6 @@ export default async function ResearchPage() {
                       {s.items_found_last_run}
                     </span>
                   </div>
-                  <div className="flex justify-between text-zinc-500">
-                    <span>Status</span>
-                    <span className={s.enabled ? "text-green-400" : "text-red-400"}>
-                      {s.enabled ? "active" : "no API key"}
-                    </span>
-                  </div>
                 </div>
               </div>
               <RunResearchButton
@@ -95,15 +98,64 @@ export default async function ResearchPage() {
           ))}
         </div>
 
+        {/* Custom Topics */}
+        <div className="mb-8">
+          <TopicManager topics={topics} />
+        </div>
+
+        {/* Per-Ticker Daily Research */}
+        <div className="mb-8">
+          <h2 className="mb-3 text-lg font-semibold">Per-Ticker Daily Research</h2>
+          <p className="mb-3 text-xs text-zinc-500">
+            Tickers marked &quot;invested&quot; or &quot;considering&quot; get a dedicated Perplexity query at 08:00 Dubai (morning catchup).
+          </p>
+          {dailyResearchTickers.length === 0 ? (
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-sm text-zinc-500">
+              No tickers with &quot;invested&quot; or &quot;considering&quot; status. Change a ticker&apos;s status from the Tickers page to enable daily research.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-zinc-800">
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-900 text-left text-xs uppercase text-zinc-500">
+                  <tr>
+                    <th className="px-4 py-3">Ticker</th>
+                    <th className="px-4 py-3">Name</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Sector</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyResearchTickers.map((t) => (
+                    <tr key={t.id} className="border-t border-zinc-800">
+                      <td className="px-4 py-3 font-mono text-yellow-400">{t.symbol}</td>
+                      <td className="px-4 py-3 text-zinc-300">{t.name}</td>
+                      <td className="px-4 py-3">
+                        <span className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                          t.lifecycle_status === "invested"
+                            ? "bg-green-600/20 text-green-400"
+                            : "bg-yellow-600/20 text-yellow-400"
+                        }`}>
+                          {t.lifecycle_status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-zinc-500">{t.sector}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         {/* How it works */}
-        <div className="mt-8 rounded-lg border border-zinc-800 bg-zinc-900/50 p-5 text-sm text-zinc-400">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-5 text-sm text-zinc-400">
           <h2 className="mb-2 font-semibold text-zinc-300">How it works</h2>
           <ul className="space-y-1 list-disc list-inside">
-            <li>Each sector sends a targeted web search query to Perplexity (sonar model)</li>
-            <li>The query includes your watchlist tickers + relevant catalyst types for that sector</li>
-            <li>Perplexity searches the web and returns structured events with source URLs</li>
-            <li>Events are deduped against existing items, then flow through classify → score → decide</li>
-            <li>Cost: ~$0.005 per query (~$0.03/day for all 6 sectors × 5 daily runs)</li>
+            <li><strong>Sector research:</strong> 6 queries per run, searches for catalyst events per sector</li>
+            <li><strong>Custom topics:</strong> Your own research queries, run daily or 5x/day</li>
+            <li><strong>Per-ticker:</strong> Dedicated query for each invested/considering ticker at morning catchup</li>
+            <li>All results flow through classify → score → decide pipeline</li>
+            <li>Cost: ~$1-3.50/month total depending on custom topics</li>
           </ul>
         </div>
       </main>

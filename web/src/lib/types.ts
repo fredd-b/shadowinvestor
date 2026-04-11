@@ -171,6 +171,25 @@ export type ResearchRun = {
   items_skipped: number;
 };
 
+export type ResearchTopic = {
+  id: number;
+  name: string;
+  query_template: string;
+  sector_hint: string | null;
+  schedule: string;
+  is_active: number;
+  created_at: string;
+  updated_at: string | null;
+  last_run_at: string | null;
+  total_items_found: number;
+};
+
+export type TickerResearchItem = {
+  symbol: string;
+  name: string;
+  lifecycle_status: string;
+};
+
 export type TickerIndicators = {
   symbol: string;
   data_points: number;

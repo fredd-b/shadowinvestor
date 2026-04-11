@@ -16,6 +16,7 @@ import type {
   ResearchRun,
   Position,
   TickerIndicators,
+  ResearchTopic,
 } from "./types";
 
 const API_BASE = process.env.API_BASE_URL || "http://localhost:8765";
@@ -184,6 +185,31 @@ export async function sellPosition(positionId: number, shares?: number, note?: s
     method: "POST",
     body: JSON.stringify({ shares, note }),
   });
+}
+
+export async function getResearchTopics(): Promise<ResearchTopic[]> {
+  return apiFetch<ResearchTopic[]>("/api/research/topics");
+}
+
+export async function createResearchTopic(data: {
+  name: string; query_template: string; sector_hint?: string; schedule?: string;
+}): Promise<ResearchTopic> {
+  return apiFetch<ResearchTopic>("/api/research/topics", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteResearchTopic(id: number): Promise<void> {
+  await apiFetch(`/api/research/topics/${id}`, { method: "DELETE" });
+}
+
+export async function runResearchTopic(id: number): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(`/api/research/topics/${id}/run`, { method: "POST" });
+}
+
+export async function getTickersForDailyResearch(): Promise<Record<string, unknown>[]> {
+  return apiFetch<Record<string, unknown>[]>("/api/tickers?watchlist_only=true");
 }
 
 export async function getTickerIndicators(symbol: string): Promise<TickerIndicators> {

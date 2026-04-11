@@ -414,6 +414,24 @@ def run_research(
 
 
 # ============================================================================
+# Prices
+# ============================================================================
+@router.post("/prices/fetch-watchlist")
+def fetch_watchlist_prices(days: int = Query(30, ge=1, le=365)) -> dict:
+    """Fetch yfinance prices for all watchlist tickers."""
+    from fesi.store.prices import fetch_yfinance_history
+    with connect() as conn:
+        tickers = list_watchlist_tickers(conn)
+        results = []
+        for t in tickers:
+            r = fetch_yfinance_history(conn, t["symbol"], days=days, exchange=t["exchange"])
+            results.append(r)
+    inserted = sum(r.get("inserted", 0) for r in results)
+    failed = sum(1 for r in results if "error" in r)
+    return {"tickers": len(results), "bars_inserted": inserted, "failures": failed}
+
+
+# ============================================================================
 # Research topics CRUD
 # ============================================================================
 @router.get("/research/topics", response_model=list[schemas.ResearchTopicOut])

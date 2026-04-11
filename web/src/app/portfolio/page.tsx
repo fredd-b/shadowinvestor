@@ -7,12 +7,9 @@ import Link from "next/link";
 export const dynamic = "force-dynamic";
 
 export default async function PortfolioPage() {
-  const [open, closed] = await Promise.all([
-    getPositions("shadow", "open").catch(() => []),
-    getPositions("shadow", "closed").catch(() => []),
-  ]);
-  const partial = await getPositions("shadow", "partial_closed").catch(() => []);
-  const allOpen = [...open, ...partial];
+  const allPositions = await getPositions("shadow").catch(() => []);
+  const allOpen = allPositions.filter((p) => p.status === "open" || p.status === "partial_closed");
+  const closed = allPositions.filter((p) => p.status === "closed");
 
   const totalInvested = allOpen.reduce((s, p) => s + p.cost_basis_usd, 0);
   const totalUnrealized = allOpen.reduce((s, p) => s + (p.unrealized_pnl_usd ?? 0), 0);

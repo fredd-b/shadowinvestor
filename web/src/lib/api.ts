@@ -178,8 +178,8 @@ export async function getPositions(mode = "shadow", status?: string): Promise<Po
   return apiFetch<Position[]>(`/api/positions?${qs}`);
 }
 
-export async function sellPosition(positionId: number, shares?: number, note?: string): Promise<void> {
-  await apiFetch(`/api/positions/${positionId}/sell`, {
+export async function sellPosition(positionId: number, shares?: number, note?: string): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(`/api/positions/${positionId}/sell`, {
     method: "POST",
     body: JSON.stringify({ shares, note }),
   });

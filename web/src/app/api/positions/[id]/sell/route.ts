@@ -8,8 +8,8 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await request.json();
-    await sellPosition(parseInt(id, 10), body.shares, body.note);
-    return NextResponse.json({ ok: true, ...body });
+    const result = await sellPosition(parseInt(id, 10), body.shares, body.note);
+    return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[positions/sell] failed", msg);

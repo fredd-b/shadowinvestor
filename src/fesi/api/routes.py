@@ -499,10 +499,11 @@ def post_signal_action(signal_id: int, body: schemas.SignalActionIn) -> dict:
                 if entry_price:
                     risk = load_risk()
                     plan = plan_position(
-                        entry_price, signal["conviction_score"],
-                        signal.get("direction", "bullish"),
-                        signal.get("timeframe_bucket", "0-3m"),
-                        risk,
+                        entry_price=entry_price,
+                        conviction_score=signal["conviction_score"],
+                        direction=signal.get("direction", "bullish"),
+                        timeframe_bucket=signal.get("timeframe_bucket", "0-3m"),
+                        risk=risk,
                     )
                     pid = open_position(
                         conn, ticker_id=tid, mode=mode,
@@ -536,10 +537,10 @@ def get_positions_list(
         rows = list_positions(conn, mode=mode, status=status)
     result = []
     for r in rows:
-        remaining = r["shares_held"] - r["shares_sold"]
+        remaining_cost = (r["shares_held"] - r["shares_sold"]) * r["entry_price"]
         pnl_pct = None
-        if r.get("cost_basis_usd") and r["cost_basis_usd"] > 0 and r.get("unrealized_pnl_usd") is not None:
-            pnl_pct = round(r["unrealized_pnl_usd"] / r["cost_basis_usd"] * 100, 2)
+        if remaining_cost > 0 and r.get("unrealized_pnl_usd") is not None:
+            pnl_pct = round(r["unrealized_pnl_usd"] / remaining_cost * 100, 2)
         result.append(schemas.PositionOut(**r, pnl_pct=pnl_pct))
     return result
 
@@ -573,18 +574,19 @@ def sell_position(position_id: int, body: schemas.SellPositionIn) -> dict:
             raise HTTPException(status_code=400, detail="Position already closed")
 
         latest = get_latest_price(conn, pos["ticker_id"])
+        if not latest:
+            log.warning("sell_no_price_data", ticker_id=pos["ticker_id"])
         exit_price = float(latest["close"]) if latest else pos["entry_price"]
 
-        remaining = pos["shares_held"] - pos["shares_sold"]
-        sell_qty = body.shares if body.shares and body.shares < remaining else remaining
-
-        execute_shadow_sell(
-            conn, decision_id=None, ticker_id=pos["ticker_id"],
-            shares=sell_qty, exit_price=exit_price,
-        )
+        # close_position validates and clamps shares_to_sell
         updated = close_position(
             conn, position_id, exit_price=exit_price,
             shares_to_sell=body.shares,
+        )
+        actual_sold = updated["shares_sold"] - (pos["shares_sold"])
+        execute_shadow_sell(
+            conn, decision_id=None, ticker_id=pos["ticker_id"],
+            shares=actual_sold, exit_price=exit_price,
         )
         insert_user_action(
             conn, action_type="sell", target_type="position",

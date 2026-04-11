@@ -135,7 +135,12 @@ def close_position(
     if remaining <= 0:
         raise ValueError(f"Position {position_id} has no remaining shares")
 
-    sell_qty = shares_to_sell if shares_to_sell and shares_to_sell < remaining else remaining
+    if shares_to_sell is not None:
+        if shares_to_sell <= 0:
+            raise ValueError("shares_to_sell must be positive")
+        if shares_to_sell > remaining:
+            raise ValueError(f"Cannot sell {shares_to_sell}, only {remaining} remaining")
+    sell_qty = shares_to_sell if shares_to_sell is not None else remaining
     is_full_close = (sell_qty >= remaining)
 
     realized = (exit_price - pos["entry_price"]) * sell_qty

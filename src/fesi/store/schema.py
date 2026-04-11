@@ -180,7 +180,7 @@ trades = Table(
     "trades",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("decision_id", Integer, ForeignKey("decisions.id"), nullable=False),
+    Column("decision_id", Integer, ForeignKey("decisions.id")),  # nullable for manual sells
     Column("mode", Text, nullable=False),
     Column("side", Text, nullable=False),
     Column("ticker_id", Integer, ForeignKey("tickers.id"), nullable=False),

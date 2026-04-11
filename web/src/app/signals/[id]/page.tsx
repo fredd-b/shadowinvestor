@@ -1,6 +1,7 @@
 import { getSignal } from "@/lib/api";
 import { formatUsd } from "@/lib/format";
 import Nav from "@/components/Nav";
+import SignalActionButtons from "@/components/SignalActionButtons";
 import { StatTile } from "@/components/StatRow";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -51,6 +52,17 @@ export default async function SignalPage({
           <h1 className="mt-3 text-2xl font-semibold text-zinc-100">
             {signal.headline}
           </h1>
+        </div>
+
+        {/* Action buttons */}
+        <div className="mb-6 flex items-center gap-4 rounded-lg border border-zinc-700 bg-zinc-900/50 p-4">
+          <span className="text-sm text-zinc-500">Your call:</span>
+          <SignalActionButtons signalId={signal.id} currentAction={signal.user_action} />
+          {signal.user_action && (
+            <span className="ml-auto text-xs text-zinc-500">
+              Current: <span className="text-zinc-300 font-semibold">{signal.user_action}</span>
+            </span>
+          )}
         </div>
 
         {/* Summary */}

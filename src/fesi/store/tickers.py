@@ -64,12 +64,12 @@ def upsert_ticker(
             INSERT INTO tickers (
                 symbol, exchange, name, sector, sub_sector,
                 is_watchlist, watchlist_thesis, alert_min_conviction,
-                market_cap_usd, added_at
+                market_cap_usd, added_at, lifecycle_status, added_by
             )
             VALUES (
                 :symbol, :exchange, :name, :sector, :sub_sector,
                 :is_watchlist, :watchlist_thesis, :alert_min_conviction,
-                :market_cap_usd, :added_at
+                :market_cap_usd, :added_at, :lifecycle_status, :added_by
             )
             RETURNING id
         """),
@@ -84,6 +84,8 @@ def upsert_ticker(
             "alert_min_conviction": alert_min_conviction,
             "market_cap_usd": market_cap_usd,
             "added_at": now,
+            "lifecycle_status": "monitoring",
+            "added_by": "yaml",
         },
     )
     return result.scalar_one()
@@ -162,3 +164,86 @@ def load_watchlist_to_db(conn: Connection) -> int:
         count += 1
     log.info("watchlist_loaded", count=count)
     return count
+
+
+# ============================================================================
+# Phase 2.7: Dynamic watchlist CRUD
+# ============================================================================
+
+VALID_LIFECYCLE = {"monitoring", "considering", "invested", "paused", "archived"}
+
+
+def add_ticker_to_watchlist(
+    conn: Connection,
+    *,
+    symbol: str,
+    exchange: str,
+    name: str,
+    sector: str,
+    thesis: str,
+    sub_sector: str | None = None,
+    alert_min_conviction: int = 3,
+) -> int:
+    """Add a user-discovered ticker to the watchlist. Returns ticker id."""
+    now = datetime.now(timezone.utc).isoformat()
+    result = conn.execute(
+        text("""
+            INSERT INTO tickers (
+                symbol, exchange, name, sector, sub_sector,
+                is_watchlist, watchlist_thesis, alert_min_conviction,
+                market_cap_usd, added_at, lifecycle_status, added_by, updated_at
+            )
+            VALUES (
+                :symbol, :exchange, :name, :sector, :sub_sector,
+                1, :thesis, :alert_min_conviction,
+                NULL, :now, 'monitoring', 'user', :now
+            )
+            RETURNING id
+        """),
+        {
+            "symbol": symbol.upper(),
+            "exchange": exchange.upper(),
+            "name": name,
+            "sector": sector,
+            "sub_sector": sub_sector,
+            "thesis": thesis,
+            "alert_min_conviction": alert_min_conviction,
+            "now": now,
+        },
+    )
+    return result.scalar_one()
+
+
+def update_ticker_status(
+    conn: Connection, ticker_id: int, status: str
+) -> None:
+    """Change lifecycle status. Validates against allowed values."""
+    if status not in VALID_LIFECYCLE:
+        raise ValueError(f"Invalid lifecycle_status: {status}")
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        text("UPDATE tickers SET lifecycle_status = :status, updated_at = :now WHERE id = :id"),
+        {"status": status, "now": now, "id": ticker_id},
+    )
+
+
+def update_ticker_thesis(conn: Connection, ticker_id: int, thesis: str) -> None:
+    """Edit a ticker's watchlist thesis."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        text("UPDATE tickers SET watchlist_thesis = :thesis, updated_at = :now WHERE id = :id"),
+        {"thesis": thesis, "now": now, "id": ticker_id},
+    )
+
+
+def remove_ticker_from_watchlist(conn: Connection, ticker_id: int) -> None:
+    """Archive a ticker and remove from active watchlist."""
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        text("""
+            UPDATE tickers
+            SET is_watchlist = 0, lifecycle_status = 'archived', updated_at = :now
+            WHERE id = :id
+        """),
+        {"now": now, "id": ticker_id},
+    )

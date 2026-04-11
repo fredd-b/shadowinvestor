@@ -64,9 +64,18 @@ tickers = Table(
     Column("watchlist_thesis", Text),
     Column("alert_min_conviction", Integer, default=3),
     Column("added_at", Text, nullable=False),
+    # Phase 2.7: dynamic watchlist lifecycle
+    Column("lifecycle_status", Text, nullable=False, default="monitoring"),
+    Column("added_by", Text, nullable=False, default="yaml"),
+    Column("updated_at", Text),
     UniqueConstraint("symbol", "exchange", name="uq_tickers_symbol_exchange"),
+    CheckConstraint(
+        "lifecycle_status IN ('monitoring','considering','invested','paused','archived')",
+        name="ck_tickers_lifecycle",
+    ),
     Index("idx_tickers_symbol", "symbol"),
     Index("idx_tickers_watchlist", "is_watchlist"),
+    Index("idx_tickers_lifecycle", "lifecycle_status"),
 )
 
 # ============================================================================
@@ -106,6 +115,8 @@ signals = Table(
     Column("raw_item_ids", Text),
     Column("source_urls", Text),
     Column("status", Text, nullable=False, default="active"),
+    # Phase 2.7: user decision override
+    Column("user_action", Text),  # invest / skip / watch_pullback / null
     CheckConstraint("impact_score BETWEEN 1 AND 5", name="ck_signals_impact"),
     CheckConstraint("probability_score BETWEEN 1 AND 5", name="ck_signals_probability"),
     Index("idx_signals_created", "created_at"),
@@ -259,6 +270,60 @@ catalyst_priors = Table(
     Column("avg_max_drawup", Float),
     Column("avg_max_drawdown", Float),
     Column("updated_at", Text, nullable=False),
+)
+
+# ============================================================================
+# user_actions: append-only audit trail of every action Fred takes.
+# ============================================================================
+user_actions = Table(
+    "user_actions",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("action_type", Text, nullable=False),
+    Column("target_type", Text, nullable=False),  # signal, ticker, decision, position
+    Column("target_id", Integer, nullable=False),
+    Column("note", Text),
+    Column("created_at", Text, nullable=False),
+    CheckConstraint(
+        "action_type IN ('invest','skip','watch_pullback','add_watchlist',"
+        "'remove_watchlist','edit_thesis','change_status','sell','override_decision')",
+        name="ck_user_actions_type",
+    ),
+    Index("idx_user_actions_target", "target_type", "target_id"),
+    Index("idx_user_actions_created", "created_at"),
+)
+
+# ============================================================================
+# positions: tracks open/closed positions with P&L.
+# ============================================================================
+positions = Table(
+    "positions",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("ticker_id", Integer, ForeignKey("tickers.id"), nullable=False),
+    Column("mode", Text, nullable=False),
+    Column("status", Text, nullable=False, default="open"),
+    Column("opened_at", Text, nullable=False),
+    Column("closed_at", Text),
+    Column("entry_decision_id", Integer, ForeignKey("decisions.id")),
+    Column("exit_decision_id", Integer, ForeignKey("decisions.id")),
+    Column("entry_price", Float, nullable=False),
+    Column("exit_price", Float),
+    Column("shares_held", Integer, nullable=False),
+    Column("shares_sold", Integer, nullable=False, default=0),
+    Column("cost_basis_usd", Float, nullable=False),
+    Column("realized_pnl_usd", Float, default=0),
+    Column("unrealized_pnl_usd", Float),
+    Column("current_price", Float),
+    Column("last_price_at", Text),
+    Column("sector", Text),
+    Column("catalyst_type", Text),
+    Column("thesis_at_entry", Text),
+    CheckConstraint("status IN ('open','partial_closed','closed')", name="ck_positions_status"),
+    CheckConstraint("mode IN ('shadow','paper','live')", name="ck_positions_mode"),
+    Index("idx_positions_ticker", "ticker_id"),
+    Index("idx_positions_status", "status"),
+    Index("idx_positions_mode", "mode", "status"),
 )
 
 # ============================================================================

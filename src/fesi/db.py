@@ -108,7 +108,31 @@ def init_db() -> dict:
     created = sorted(existing_after - existing_before)
     existing = sorted(existing_before & {t.name for t in metadata.sorted_tables})
     log.info("init_db_done", created=created, existing=existing)
+
+    # Upgrade existing tables with new columns (create_all only creates new tables)
+    _upgrade_schema(engine)
+
     return {"created": created, "existing": existing}
+
+
+def _upgrade_schema(engine: Engine) -> None:
+    """Add columns that were added after initial schema creation.
+
+    Safe to call repeatedly — checks column existence before ALTER.
+    """
+    inspector = inspect(engine)
+    upgrades = [
+        ("tickers", "lifecycle_status", "TEXT NOT NULL DEFAULT 'monitoring'"),
+        ("tickers", "added_by", "TEXT NOT NULL DEFAULT 'yaml'"),
+        ("tickers", "updated_at", "TEXT"),
+        ("signals", "user_action", "TEXT"),
+    ]
+    with engine.begin() as conn:
+        for table, column, col_type in upgrades:
+            existing_cols = {c["name"] for c in inspector.get_columns(table)}
+            if column not in existing_cols:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+                log.info("schema_upgrade", table=table, column=column)
 
 
 def get_db_path() -> Path:

@@ -187,3 +187,18 @@ def count_signals_in_window(conn: Connection, since: datetime) -> int:
         {"since": since.isoformat()},
     ).mappings().first()
     return int(row["cnt"]) if row else 0
+
+
+VALID_USER_ACTIONS = {"invest", "skip", "watch_pullback"}
+
+
+def update_signal_user_action(
+    conn: Connection, signal_id: int, user_action: str
+) -> None:
+    """Set Fred's decision on a signal: invest / skip / watch_pullback."""
+    if user_action not in VALID_USER_ACTIONS:
+        raise ValueError(f"Invalid user_action: {user_action}")
+    conn.execute(
+        text("UPDATE signals SET user_action = :action WHERE id = :id"),
+        {"action": user_action, "id": signal_id},
+    )

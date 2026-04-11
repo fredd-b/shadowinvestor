@@ -133,3 +133,40 @@ export async function runResearch(sector?: string): Promise<ResearchRun> {
   const qs = sector ? `?sector=${encodeURIComponent(sector)}` : "";
   return apiFetch<ResearchRun>(`/api/research/run${qs}`, { method: "POST" });
 }
+
+export async function addTicker(data: {
+  symbol: string; exchange: string; name: string;
+  sector: string; thesis: string; sub_sector?: string;
+}): Promise<Ticker> {
+  return apiFetch<Ticker>("/api/tickers", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateTickerStatus(symbol: string, status: string, note?: string): Promise<void> {
+  await apiFetch(`/api/tickers/${encodeURIComponent(symbol)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, note }),
+  });
+}
+
+export async function updateTickerThesis(symbol: string, thesis: string): Promise<void> {
+  await apiFetch(`/api/tickers/${encodeURIComponent(symbol)}/thesis`, {
+    method: "PATCH",
+    body: JSON.stringify({ thesis }),
+  });
+}
+
+export async function removeTickerFromWatchlist(symbol: string): Promise<void> {
+  await apiFetch(`/api/tickers/${encodeURIComponent(symbol)}/watchlist`, {
+    method: "DELETE",
+  });
+}
+
+export async function setSignalAction(signalId: number, action: string, note?: string): Promise<void> {
+  await apiFetch(`/api/signals/${signalId}/action`, {
+    method: "POST",
+    body: JSON.stringify({ action, note }),
+  });
+}

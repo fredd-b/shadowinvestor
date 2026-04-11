@@ -36,6 +36,7 @@ export type Signal = {
   feature_market_cap_bucket: string | null;
   feature_market_cap_usd: number | null;
   status: string;
+  user_action: string | null;
 };
 
 export type Decision = {
@@ -76,6 +77,9 @@ export type Ticker = {
   is_watchlist: number;
   watchlist_thesis: string | null;
   alert_min_conviction: number | null;
+  lifecycle_status: string;
+  added_by: string;
+  updated_at: string | null;
 };
 
 export type Portfolio = {

@@ -89,12 +89,13 @@ export default async function HomePage({
                 <th className="px-4 py-3 text-right">Conviction</th>
                 <th className="px-4 py-3 text-right">I/P</th>
                 <th className="px-4 py-3">Headline</th>
+                <th className="px-4 py-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody>
               {top.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={8} className="px-4 py-8 text-center text-zinc-500">
                     No signals in this window. Trigger a pipeline run from the API.
                   </td>
                 </tr>
@@ -138,6 +139,21 @@ export default async function HomePage({
                         >
                           {s.headline}
                         </Link>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {s.user_action ? (
+                          <span className={`inline-block rounded px-2 py-0.5 text-xs font-semibold ${
+                            s.user_action === "invest"
+                              ? "bg-green-600/20 text-green-400"
+                              : s.user_action === "skip"
+                              ? "bg-zinc-700/50 text-zinc-500"
+                              : "bg-yellow-600/20 text-yellow-400"
+                          }`}>
+                            {s.user_action}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-700">—</span>
+                        )}
                       </td>
                     </tr>
                   );

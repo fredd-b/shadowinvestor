@@ -30,10 +30,16 @@ from fesi.store.signals import (
     list_signals_in_window,
 )
 from fesi.store.tickers import (
+    add_ticker_to_watchlist,
     get_ticker_by_symbol,
     list_all_tickers,
     list_watchlist_tickers,
+    remove_ticker_from_watchlist,
+    update_ticker_status,
+    update_ticker_thesis,
 )
+from fesi.store.signals import update_signal_user_action
+from fesi.store.user_actions import insert_user_action, list_recent_actions
 
 log = get_logger(__name__)
 
@@ -345,3 +351,119 @@ def run_research(
         items_inserted=result["inserted"],
         items_skipped=result["skipped"],
     )
+
+
+# ============================================================================
+# Watchlist management (CRUD)
+# ============================================================================
+@router.post("/tickers", response_model=schemas.TickerOut)
+def add_ticker(body: schemas.AddTickerIn) -> schemas.TickerOut:
+    """Add a new ticker to the watchlist."""
+    with connect() as conn:
+        existing = get_ticker_by_symbol(conn, body.symbol, body.exchange)
+        if existing:
+            raise HTTPException(status_code=409, detail=f"{body.symbol} already exists")
+        ticker_id = add_ticker_to_watchlist(
+            conn,
+            symbol=body.symbol,
+            exchange=body.exchange,
+            name=body.name,
+            sector=body.sector,
+            thesis=body.thesis,
+            sub_sector=body.sub_sector,
+        )
+        insert_user_action(
+            conn,
+            action_type="add_watchlist",
+            target_type="ticker",
+            target_id=ticker_id,
+            note=body.thesis,
+        )
+        ticker = get_ticker_by_symbol(conn, body.symbol, body.exchange)
+    return schemas.TickerOut(**ticker)
+
+
+@router.patch("/tickers/{symbol}/status")
+def patch_ticker_status(symbol: str, body: schemas.TickerStatusIn) -> dict:
+    """Change a ticker's lifecycle status."""
+    with connect() as conn:
+        ticker = get_ticker_by_symbol(conn, symbol)
+        if not ticker:
+            raise HTTPException(status_code=404, detail=f"Ticker {symbol} not found")
+        update_ticker_status(conn, ticker["id"], body.status)
+        insert_user_action(
+            conn,
+            action_type="change_status",
+            target_type="ticker",
+            target_id=ticker["id"],
+            note=f"{body.status}" + (f": {body.note}" if body.note else ""),
+        )
+    return {"ok": True, "symbol": symbol, "status": body.status}
+
+
+@router.patch("/tickers/{symbol}/thesis")
+def patch_ticker_thesis(symbol: str, body: schemas.TickerThesisIn) -> dict:
+    """Edit a ticker's watchlist thesis."""
+    with connect() as conn:
+        ticker = get_ticker_by_symbol(conn, symbol)
+        if not ticker:
+            raise HTTPException(status_code=404, detail=f"Ticker {symbol} not found")
+        update_ticker_thesis(conn, ticker["id"], body.thesis)
+        insert_user_action(
+            conn,
+            action_type="edit_thesis",
+            target_type="ticker",
+            target_id=ticker["id"],
+            note=body.thesis[:200],
+        )
+    return {"ok": True, "symbol": symbol}
+
+
+@router.delete("/tickers/{symbol}/watchlist")
+def delete_ticker_from_watchlist(symbol: str) -> dict:
+    """Remove a ticker from the active watchlist (archives it)."""
+    with connect() as conn:
+        ticker = get_ticker_by_symbol(conn, symbol)
+        if not ticker:
+            raise HTTPException(status_code=404, detail=f"Ticker {symbol} not found")
+        remove_ticker_from_watchlist(conn, ticker["id"])
+        insert_user_action(
+            conn,
+            action_type="remove_watchlist",
+            target_type="ticker",
+            target_id=ticker["id"],
+        )
+    return {"ok": True, "symbol": symbol, "status": "archived"}
+
+
+# ============================================================================
+# Signal user actions (invest / skip / watch)
+# ============================================================================
+@router.post("/signals/{signal_id}/action")
+def post_signal_action(signal_id: int, body: schemas.SignalActionIn) -> dict:
+    """Mark a signal with Fred's decision: invest / skip / watch_pullback."""
+    from fesi.store.signals import get_signal_by_id
+    with connect() as conn:
+        signal = get_signal_by_id(conn, signal_id)
+        if not signal:
+            raise HTTPException(status_code=404, detail="Signal not found")
+        update_signal_user_action(conn, signal_id, body.action)
+        insert_user_action(
+            conn,
+            action_type=body.action,
+            target_type="signal",
+            target_id=signal_id,
+            note=body.note,
+        )
+    return {"ok": True, "signal_id": signal_id, "action": body.action}
+
+
+# ============================================================================
+# Activity feed
+# ============================================================================
+@router.get("/actions", response_model=list[schemas.UserActionOut])
+def get_actions(limit: int = Query(50, ge=1, le=200)) -> list[schemas.UserActionOut]:
+    """Recent user actions (activity feed)."""
+    with connect() as conn:
+        rows = list_recent_actions(conn, limit=limit)
+    return [schemas.UserActionOut(**r) for r in rows]

@@ -33,6 +33,7 @@ class SignalOut(BaseModel):
     feature_market_cap_bucket: str | None = None
     feature_market_cap_usd: float | None = None
     status: str = "active"
+    user_action: str | None = None
 
 
 class DecisionOut(BaseModel):
@@ -73,6 +74,9 @@ class TickerOut(BaseModel):
     is_watchlist: int = 0
     watchlist_thesis: str | None = None
     alert_min_conviction: int | None = None
+    lifecycle_status: str = "monitoring"
+    added_by: str = "yaml"
+    updated_at: str | None = None
 
 
 class PortfolioOut(BaseModel):
@@ -152,6 +156,38 @@ class ResearchRunOut(BaseModel):
     items_fetched: int
     items_inserted: int
     items_skipped: int
+
+
+class AddTickerIn(BaseModel):
+    symbol: str
+    exchange: str
+    name: str
+    sector: str
+    thesis: str
+    sub_sector: str | None = None
+
+
+class TickerStatusIn(BaseModel):
+    status: str  # monitoring, considering, invested, paused, archived
+    note: str | None = None
+
+
+class TickerThesisIn(BaseModel):
+    thesis: str
+
+
+class SignalActionIn(BaseModel):
+    action: str  # invest, skip, watch_pullback
+    note: str | None = None
+
+
+class UserActionOut(BaseModel):
+    id: int
+    action_type: str
+    target_type: str
+    target_id: int
+    note: str | None = None
+    created_at: str
 
 
 class HealthOut(BaseModel):

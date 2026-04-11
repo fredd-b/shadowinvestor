@@ -34,6 +34,16 @@ class SignalOut(BaseModel):
     feature_market_cap_usd: float | None = None
     status: str = "active"
     user_action: str | None = None
+    # Recommendation (joined from decisions table)
+    recommendation: str | None = None
+    recommendation_reasoning: str | None = None
+    recommendation_confidence: float | None = None
+    intended_entry_price: float | None = None
+    intended_stop_loss: float | None = None
+    intended_target: float | None = None
+    intended_position_usd: float | None = None
+    decision_action: str | None = None
+    decision_rule: str | None = None
 
 
 class DecisionOut(BaseModel):
@@ -178,6 +188,38 @@ class TickerThesisIn(BaseModel):
 
 class SignalActionIn(BaseModel):
     action: str  # invest, skip, watch_pullback
+    note: str | None = None
+
+
+class PositionOut(BaseModel):
+    id: int
+    ticker_id: int
+    ticker_symbol: str | None = None
+    ticker_name: str | None = None
+    ticker_exchange: str | None = None
+    mode: str
+    status: str
+    opened_at: str
+    closed_at: str | None = None
+    entry_price: float
+    exit_price: float | None = None
+    shares_held: int
+    shares_sold: int
+    cost_basis_usd: float
+    realized_pnl_usd: float
+    unrealized_pnl_usd: float | None = None
+    current_price: float | None = None
+    last_price_at: str | None = None
+    sector: str | None = None
+    catalyst_type: str | None = None
+    thesis_at_entry: str | None = None
+    pnl_pct: float | None = None
+    entry_decision_id: int | None = None
+    exit_decision_id: int | None = None
+
+
+class SellPositionIn(BaseModel):
+    shares: int | None = None  # null = sell all
     note: str | None = None
 
 

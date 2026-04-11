@@ -120,13 +120,33 @@ def run_pipeline(
                         if signal.get("primary_ticker_id"):
                             latest = get_latest_price(conn, signal["primary_ticker_id"])
                             if latest is not None:
+                                entry_price = float(latest["close"])
                                 execute_shadow_buy(
                                     conn,
                                     decision_id=outcome["decision_id"],
                                     ticker_id=signal["primary_ticker_id"],
                                     shares=outcome["shares"],
-                                    entry_price=float(latest["close"]),
+                                    entry_price=entry_price,
                                 )
+                                # Open a position (skip if one already exists)
+                                from fesi.store.positions import (
+                                    open_position, get_open_position_for_ticker,
+                                )
+                                existing = get_open_position_for_ticker(
+                                    conn, signal["primary_ticker_id"],
+                                    get_settings().mode,
+                                )
+                                if existing is None:
+                                    open_position(
+                                        conn,
+                                        ticker_id=signal["primary_ticker_id"],
+                                        mode=get_settings().mode,
+                                        entry_decision_id=outcome["decision_id"],
+                                        entry_price=entry_price,
+                                        shares=outcome["shares"],
+                                        sector=signal.get("sector"),
+                                        catalyst_type=signal.get("catalyst_type"),
+                                    )
                     else:
                         stats.decisions_no_buy += 1
             except Exception as e:
@@ -156,6 +176,15 @@ def run_pipeline(
         except Exception as e:
             log.exception("digest_render_failed", error=str(e))
             stats.errors.append(f"digest: {e}")
+
+    # ---- Phase E2: Update unrealized P&L on open positions ----
+    try:
+        with connect() as conn:
+            from fesi.store.positions import update_all_unrealized
+            update_all_unrealized(conn, mode=get_settings().mode)
+    except Exception as e:
+        log.exception("unrealized_update_failed", error=str(e))
+        stats.errors.append(f"unrealized: {e}")
 
     # ---- Phase F: Notify (outside DB context to release the lock) ----
     if digest_md:

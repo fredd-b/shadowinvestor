@@ -53,3 +53,43 @@ def execute_shadow_buy(
         },
     )
     return result.scalar_one()
+
+
+def execute_shadow_sell(
+    conn: Connection,
+    *,
+    decision_id: int | None,
+    ticker_id: int,
+    shares: int,
+    exit_price: float,
+) -> int:
+    """Record a virtual filled sell in the trades table."""
+    now = datetime.now(timezone.utc).isoformat()
+    result = conn.execute(
+        text("""
+            INSERT INTO trades (
+                decision_id, mode, side, ticker_id,
+                submitted_at, filled_at,
+                requested_shares, filled_shares,
+                requested_price, filled_price,
+                broker_order_id, status, fees_usd
+            )
+            VALUES (
+                :decision_id, 'shadow', 'sell', :ticker_id,
+                :now, :now,
+                :shares, :shares,
+                :exit_price, :exit_price,
+                :order_id, 'filled', 0
+            )
+            RETURNING id
+        """),
+        {
+            "decision_id": decision_id,
+            "ticker_id": ticker_id,
+            "now": now,
+            "shares": shares,
+            "exit_price": exit_price,
+            "order_id": f"shadow-sell-{decision_id or 'manual'}",
+        },
+    )
+    return result.scalar_one()

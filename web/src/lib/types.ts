@@ -37,6 +37,16 @@ export type Signal = {
   feature_market_cap_usd: number | null;
   status: string;
   user_action: string | null;
+  // Recommendation (from decision engine)
+  recommendation: string | null;
+  recommendation_reasoning: string | null;
+  recommendation_confidence: number | null;
+  intended_entry_price: number | null;
+  intended_stop_loss: number | null;
+  intended_target: number | null;
+  intended_position_usd: number | null;
+  decision_action: string | null;
+  decision_rule: string | null;
 };
 
 export type Decision = {
@@ -159,4 +169,29 @@ export type ResearchRun = {
   items_fetched: number;
   items_inserted: number;
   items_skipped: number;
+};
+
+export type Position = {
+  id: number;
+  ticker_id: number;
+  ticker_symbol: string | null;
+  ticker_name: string | null;
+  ticker_exchange: string | null;
+  mode: string;
+  status: string;
+  opened_at: string;
+  closed_at: string | null;
+  entry_price: number;
+  exit_price: number | null;
+  shares_held: number;
+  shares_sold: number;
+  cost_basis_usd: number;
+  realized_pnl_usd: number;
+  unrealized_pnl_usd: number | null;
+  current_price: number | null;
+  last_price_at: string | null;
+  sector: string | null;
+  catalyst_type: string | null;
+  thesis_at_entry: string | null;
+  pnl_pct: number | null;
 };

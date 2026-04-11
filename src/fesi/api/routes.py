@@ -112,9 +112,36 @@ def get_signals(
 def get_signal(signal_id: int) -> schemas.SignalOut:
     with connect() as conn:
         row = get_signal_by_id(conn, signal_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="signal not found")
-    return schemas.SignalOut(**_signal_dict(row))
+        if row is None:
+            raise HTTPException(status_code=404, detail="signal not found")
+        # Join decision data for recommendation
+        decision = conn.execute(text("""
+            SELECT action, reasoning, confidence, rule_triggered,
+                   intended_entry_price, intended_stop_loss, intended_target,
+                   intended_position_usd
+            FROM decisions WHERE signal_id = :sid
+            ORDER BY decided_at DESC LIMIT 1
+        """), {"sid": signal_id}).mappings().first()
+    d = _signal_dict(row)
+    if decision:
+        dec = dict(decision)
+        d["decision_action"] = dec.get("action")
+        d["recommendation_reasoning"] = dec.get("reasoning")
+        d["recommendation_confidence"] = dec.get("confidence")
+        d["intended_entry_price"] = dec.get("intended_entry_price")
+        d["intended_stop_loss"] = dec.get("intended_stop_loss")
+        d["intended_target"] = dec.get("intended_target")
+        d["intended_position_usd"] = dec.get("intended_position_usd")
+        d["decision_rule"] = dec.get("rule_triggered")
+        # Map to recommendation label
+        conv = row.get("conviction_score", 0)
+        if dec["action"] == "buy":
+            d["recommendation"] = "BUY" if conv >= 15 else "CONSIDER"
+        elif dec.get("rule_triggered") and "conviction" in (dec["rule_triggered"] or ""):
+            d["recommendation"] = "SKIP"
+        else:
+            d["recommendation"] = "WATCH"
+    return schemas.SignalOut(**d)
 
 
 def _signal_dict(row: dict) -> dict:
@@ -441,8 +468,13 @@ def delete_ticker_from_watchlist(symbol: str) -> dict:
 # ============================================================================
 @router.post("/signals/{signal_id}/action")
 def post_signal_action(signal_id: int, body: schemas.SignalActionIn) -> dict:
-    """Mark a signal with Fred's decision: invest / skip / watch_pullback."""
+    """Mark a signal with Fred's decision. If 'invest', opens a position."""
     from fesi.store.signals import get_signal_by_id
+    from fesi.store.positions import open_position, get_open_position_for_ticker
+    from fesi.store.prices import get_latest_price
+    from fesi.decision.sizing import plan_position
+    from fesi.config import load_risk
+
     with connect() as conn:
         signal = get_signal_by_id(conn, signal_id)
         if not signal:
@@ -455,7 +487,140 @@ def post_signal_action(signal_id: int, body: schemas.SignalActionIn) -> dict:
             target_id=signal_id,
             note=body.note,
         )
-    return {"ok": True, "signal_id": signal_id, "action": body.action}
+
+        position_id = None
+        if body.action == "invest" and signal.get("primary_ticker_id"):
+            tid = signal["primary_ticker_id"]
+            mode = get_settings().mode
+            existing = get_open_position_for_ticker(conn, tid, mode)
+            if existing is None:
+                latest = get_latest_price(conn, tid)
+                entry_price = float(latest["close"]) if latest else None
+                if entry_price:
+                    risk = load_risk()
+                    plan = plan_position(
+                        entry_price, signal["conviction_score"],
+                        signal.get("direction", "bullish"),
+                        signal.get("timeframe_bucket", "0-3m"),
+                        risk,
+                    )
+                    pid = open_position(
+                        conn, ticker_id=tid, mode=mode,
+                        entry_decision_id=None, entry_price=entry_price,
+                        shares=plan.shares, sector=signal.get("sector"),
+                        catalyst_type=signal.get("catalyst_type"),
+                        thesis=signal.get("summary", "")[:500],
+                    )
+                    position_id = pid
+                    update_ticker_status(conn, tid, "invested")
+
+    return {
+        "ok": True,
+        "signal_id": signal_id,
+        "action": body.action,
+        "position_id": position_id,
+    }
+
+
+# ============================================================================
+# Positions
+# ============================================================================
+@router.get("/positions", response_model=list[schemas.PositionOut])
+def get_positions_list(
+    mode: str = Query("shadow"),
+    status: str | None = Query(None),
+) -> list[schemas.PositionOut]:
+    """List positions with unrealized P&L."""
+    from fesi.store.positions import list_positions
+    with connect() as conn:
+        rows = list_positions(conn, mode=mode, status=status)
+    result = []
+    for r in rows:
+        remaining = r["shares_held"] - r["shares_sold"]
+        pnl_pct = None
+        if r.get("cost_basis_usd") and r["cost_basis_usd"] > 0 and r.get("unrealized_pnl_usd") is not None:
+            pnl_pct = round(r["unrealized_pnl_usd"] / r["cost_basis_usd"] * 100, 2)
+        result.append(schemas.PositionOut(**r, pnl_pct=pnl_pct))
+    return result
+
+
+@router.get("/positions/{position_id}", response_model=schemas.PositionOut)
+def get_position(position_id: int) -> schemas.PositionOut:
+    from fesi.store.positions import get_position_by_id
+    with connect() as conn:
+        pos = get_position_by_id(conn, position_id)
+    if not pos:
+        raise HTTPException(status_code=404, detail="Position not found")
+    remaining = pos["shares_held"] - pos["shares_sold"]
+    pnl_pct = None
+    if pos.get("cost_basis_usd") and pos["cost_basis_usd"] > 0 and pos.get("unrealized_pnl_usd") is not None:
+        pnl_pct = round(pos["unrealized_pnl_usd"] / pos["cost_basis_usd"] * 100, 2)
+    return schemas.PositionOut(**pos, pnl_pct=pnl_pct)
+
+
+@router.post("/positions/{position_id}/sell")
+def sell_position(position_id: int, body: schemas.SellPositionIn) -> dict:
+    """Sell (full or partial) a position."""
+    from fesi.store.positions import get_position_by_id, close_position
+    from fesi.store.prices import get_latest_price
+    from fesi.execute.shadow import execute_shadow_sell
+
+    with connect() as conn:
+        pos = get_position_by_id(conn, position_id)
+        if not pos:
+            raise HTTPException(status_code=404, detail="Position not found")
+        if pos["status"] == "closed":
+            raise HTTPException(status_code=400, detail="Position already closed")
+
+        latest = get_latest_price(conn, pos["ticker_id"])
+        exit_price = float(latest["close"]) if latest else pos["entry_price"]
+
+        remaining = pos["shares_held"] - pos["shares_sold"]
+        sell_qty = body.shares if body.shares and body.shares < remaining else remaining
+
+        execute_shadow_sell(
+            conn, decision_id=None, ticker_id=pos["ticker_id"],
+            shares=sell_qty, exit_price=exit_price,
+        )
+        updated = close_position(
+            conn, position_id, exit_price=exit_price,
+            shares_to_sell=body.shares,
+        )
+        insert_user_action(
+            conn, action_type="sell", target_type="position",
+            target_id=position_id, note=body.note,
+        )
+        if updated["status"] == "closed":
+            update_ticker_status(conn, pos["ticker_id"], "monitoring")
+
+    return {
+        "ok": True,
+        "position_id": position_id,
+        "status": updated["status"],
+        "realized_pnl": updated["realized_pnl_usd"],
+        "shares_sold": sell_qty,
+        "exit_price": exit_price,
+    }
+
+
+# ============================================================================
+# Discoveries (new tickers from signals not in watchlist)
+# ============================================================================
+@router.get("/discoveries")
+def get_discoveries(limit: int = Query(20, ge=1, le=100)) -> list[dict]:
+    """Signals mentioning tickers not yet on the watchlist."""
+    with connect() as conn:
+        rows = conn.execute(text("""
+            SELECT s.id AS signal_id, s.headline, s.catalyst_type, s.sector,
+                   s.conviction_score, s.direction, s.created_at,
+                   t.symbol, t.name AS company_name, t.exchange
+            FROM signals s
+            JOIN tickers t ON s.primary_ticker_id = t.id
+            WHERE t.is_watchlist = 0 AND t.lifecycle_status != 'archived'
+            ORDER BY s.conviction_score DESC
+            LIMIT :limit
+        """), {"limit": limit}).mappings().all()
+    return [dict(r) for r in rows]
 
 
 # ============================================================================

@@ -14,6 +14,7 @@ import type {
   Status,
   ResearchSector,
   ResearchRun,
+  Position,
 } from "./types";
 
 const API_BASE = process.env.API_BASE_URL || "http://localhost:8765";
@@ -169,4 +170,21 @@ export async function setSignalAction(signalId: number, action: string, note?: s
     method: "POST",
     body: JSON.stringify({ action, note }),
   });
+}
+
+export async function getPositions(mode = "shadow", status?: string): Promise<Position[]> {
+  const qs = new URLSearchParams({ mode });
+  if (status) qs.set("status", status);
+  return apiFetch<Position[]>(`/api/positions?${qs}`);
+}
+
+export async function sellPosition(positionId: number, shares?: number, note?: string): Promise<void> {
+  await apiFetch(`/api/positions/${positionId}/sell`, {
+    method: "POST",
+    body: JSON.stringify({ shares, note }),
+  });
+}
+
+export async function getDiscoveries(): Promise<Record<string, unknown>[]> {
+  return apiFetch<Record<string, unknown>[]>("/api/discoveries");
 }

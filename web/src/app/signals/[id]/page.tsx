@@ -54,6 +54,44 @@ export default async function SignalPage({
           </h1>
         </div>
 
+        {/* Recommendation banner */}
+        {signal.recommendation && (
+          <div className={`mb-6 rounded-lg border p-5 ${
+            signal.recommendation === "BUY"
+              ? "border-green-500/40 bg-green-500/10"
+              : signal.recommendation === "CONSIDER"
+              ? "border-yellow-500/40 bg-yellow-500/10"
+              : signal.recommendation === "WATCH"
+              ? "border-blue-500/40 bg-blue-500/10"
+              : "border-zinc-700 bg-zinc-900/50"
+          }`}>
+            <div className="flex items-center gap-3 mb-2">
+              <span className={`text-2xl font-bold ${
+                signal.recommendation === "BUY" ? "text-green-400"
+                : signal.recommendation === "CONSIDER" ? "text-yellow-400"
+                : signal.recommendation === "WATCH" ? "text-blue-400"
+                : "text-zinc-500"
+              }`}>
+                {signal.recommendation}
+              </span>
+              <span className="text-sm text-zinc-400">
+                conviction {signal.conviction_score.toFixed(1)} · confidence {((signal.recommendation_confidence ?? 0) * 100).toFixed(0)}%
+              </span>
+            </div>
+            {signal.intended_entry_price && (
+              <div className="flex gap-6 text-sm mb-2">
+                <span>Entry <span className="font-mono text-zinc-200">${signal.intended_entry_price.toFixed(2)}</span></span>
+                <span>Stop <span className="font-mono text-red-400">${signal.intended_stop_loss?.toFixed(2)}</span></span>
+                <span>Target <span className="font-mono text-green-400">${signal.intended_target?.toFixed(2)}</span></span>
+                <span>Size <span className="font-mono text-zinc-200">${signal.intended_position_usd?.toFixed(0)}</span></span>
+              </div>
+            )}
+            {signal.recommendation_reasoning && (
+              <p className="text-xs text-zinc-400">{signal.recommendation_reasoning}</p>
+            )}
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="mb-6 flex items-center gap-4 rounded-lg border border-zinc-700 bg-zinc-900/50 p-4">
           <span className="text-sm text-zinc-500">Your call:</span>

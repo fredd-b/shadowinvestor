@@ -26,7 +26,12 @@ See `config/sectors.yaml` for full definitions.
 ## How a signal becomes a buy (7 steps)
 
 ### 1. Multi-source ingest
-SEC EDGAR (8-K/6-K), FDA OpenFDA, ClinicalTrials.gov v2, 5 press wire RSS feeds (PR Newswire health/energy/financial, GlobeNewswire, BusinessWire), and **Perplexity LLM web search** (6 sector-specific queries per run) are fetched 5x daily in UAE timezone (15:00, 18:00, 22:00, 02:00, 08:00). Perplexity is the only adapter that can discover tickers not already on the watchlist.
+SEC EDGAR (8-K/6-K), FDA OpenFDA, ClinicalTrials.gov v2, 5 press wire RSS feeds (PR Newswire health/energy/financial, GlobeNewswire, BusinessWire), and **Perplexity LLM web search** are fetched 5x daily in UAE timezone (15:00, 18:00, 22:00, 02:00, 08:00).
+
+Perplexity runs three types of queries:
+- **Sector queries** (6 per run, 5x/day) — broad catalyst scanning per sector
+- **Custom research topics** (up to 8, configurable daily or every_run) — user-created themes
+- **Per-ticker daily research** (morning_catchup only) — dedicated queries for invested/considering tickers
 
 ### 2. Normalize + cross-source dedup
 Items with title similarity ≥ 0.85 are merged into one candidate signal. Source count and source diversity become ML features on the resulting signal row.

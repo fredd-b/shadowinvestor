@@ -8,7 +8,7 @@ ShadowInvestor is a personal catalyst-driven trading signal system. This doc exp
 ┌────────────────────────────────────────────────────────────────────────┐
 │                            DATA SOURCES                                │
 │   SEC EDGAR · FDA OpenFDA · ClinicalTrials.gov v2 · RSS wires          │
-│   Perplexity web search (6 sector queries per run via sonar model)     │
+│   Perplexity web search (sectors + custom topics + per-ticker daily)   │
 └────────────────────────────────┬───────────────────────────────────────┘
                                  │ httpx + retries + rate limits
                                  ▼
@@ -106,7 +106,8 @@ ShadowInvestor is a personal catalyst-driven trading signal system. This doc exp
 | `store/*.py` | Pure-function CRUD per table (`tickers`, `raw_items`, `signals`, `decisions`, `prices`, `outcomes`, `digests`) |
 | `ingest/base.py` | `IngestAdapter` ABC + `RawItem` dataclass |
 | `ingest/http.py` | Shared httpx client with retries, rate limits, SEC-friendly UA |
-| `ingest/{sec_edgar,fda_openfda,clinicaltrials,wires,perplexity}.py` | One adapter per source. Perplexity does LLM-grounded web search (6 sector queries/run). |
+| `ingest/{sec_edgar,fda_openfda,clinicaltrials,wires,perplexity}.py` | One adapter per source. Perplexity does sector queries + custom topics + per-ticker daily research. |
+| `analysis/ta.py` | Technical analysis: SMA(20/50/200), RSI(14), trend detection. Pure Python. |
 | `intelligence/llm.py` | Claude API (primary in prod) + deterministic fallback for `classify()` and `score()` |
 | `intelligence/normalize.py` | Fuzzy-title dedup → `CandidateSignal` groups |
 | `intelligence/classifier.py` | Public interface (thin wrapper around llm.py) |
@@ -267,8 +268,11 @@ The `MODE` env var is the source of truth. Default is `shadow`.
 | `outcomes` | T+1, T+5, T+30, T+90 returns + max draw | joined by `signal_id` |
 | `prices` | Daily OHLCV cache | `(ticker_id, date) UNIQUE` |
 | `embeddings` | Text vectors for semantic dedup (Phase 2+) | `text_hash`, `vector` BLOB |
-| `catalyst_priors` | Historical baselines per catalyst type (Phase 3) | `hit_rate`, `avg_return_*` |
+| `catalyst_priors` | Historical baselines per catalyst type (Phase 4) | `hit_rate`, `avg_return_*` |
 | `digests` | Journal of every digest delivered | `markdown_body` |
+| `user_actions` | Append-only audit trail of Fred's actions | `action_type`, `target_type`, `target_id`, `note` |
+| `positions` | Open/closed positions with P&L | `entry_price`, `exit_price`, `shares_held`, `realized_pnl_usd`, `unrealized_pnl_usd` |
+| `research_topics` | User-created research queries (max 8) | `name`, `query_template`, `schedule` (daily/every_run), `sector_hint` |
 
 `metadata.create_all(engine)` is idempotent and dialect-aware. The same schema works in SQLite (dev) and Postgres (Railway prod).
 

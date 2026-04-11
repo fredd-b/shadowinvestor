@@ -2,6 +2,48 @@
 
 All notable changes to ShadowInvestor. Format loosely follows [Keep a Changelog](https://keepachangelog.com/) and uses semantic-ish dating since we're pre-1.0.
 
+## [Phase 3.1] — 2026-04-11
+
+### Added
+- **Technical Analysis** — `src/fesi/analysis/ta.py`: SMA(20/50/200), RSI(14), trend detection. Pure Python, no external TA library. API: `GET /api/tickers/{symbol}/indicators`. Ticker detail page shows color-coded indicators (overbought/oversold, price vs SMA arrows, trend).
+- **Custom Research Topics** — `research_topics` table + CRUD store. Users create research queries from the UI (max 8 active, $2/month worst case). Runs on schedule: "daily" at morning_catchup, "every_run" for all 5 runs. API: full CRUD at `/api/research/topics`. Frontend: TopicManager component with add/run/delete.
+- **Per-Ticker Daily Research** — `PerplexityAdapter.fetch_ticker_research()` runs dedicated Perplexity queries for invested/considering tickers at morning_catchup (once/day). Cost: ~$0.30/month.
+- **Price Fetch Endpoint** — `POST /api/prices/fetch-watchlist` fetches yfinance prices for all watchlist tickers remotely. 1,166 bars fetched for 19 tickers on prod.
+- **run_label plumbing** — scheduler now passes label (pre_market, morning_catchup, etc.) through to pipeline, enabling per-run-type query customization.
+- 8 new TA tests (48 total)
+
+### Fixed
+- **sell_qty undefined** — sell endpoint was crashing with NameError; fixed to `actual_sold`
+- **Triple PerplexityAdapter** — pipeline was creating 3 separate instances (3 rate limiters, 9 YAML reads); now reuses one
+- **JSON schema duplication** — extracted `_EVENT_JSON_SCHEMA` + `_JSON_INSTRUCTIONS` constants shared by all 3 prompt builders
+
+## [Phase 3.0] — 2026-04-11
+
+### Added
+- **Position lifecycle** — `positions` table + `src/fesi/store/positions.py`: open, close (full/partial), unrealized P&L tracking. Pipeline auto-opens positions on engine buy decisions.
+- **Shadow sell execution** — `execute_shadow_sell()` records virtual sell trades in the trades table.
+- **BUY/SKIP/WATCH recommendations** — signal detail page shows colored recommendation banner with entry/stop/target prices and engine reasoning. Joined from decisions table.
+- **Discoveries endpoint** — `GET /api/discoveries` surfaces signals mentioning tickers not yet on the watchlist.
+- **Portfolio rewrite** — total rewrite with: invested/unrealized/realized P&L summary cards, open positions table with sell buttons, closed positions trade journal.
+- **SellButton component** — sell all or partial with confirmation dialog.
+- 7 new API endpoints (positions CRUD, sell, discoveries, enhanced signal detail)
+
+### Fixed
+- **trades.decision_id** — made nullable for manual sells (was NOT NULL, blocking every sell)
+- **plan_position()** — called with positional args but function is keyword-only; fixed to keyword args
+- **close_position validation** — shares_to_sell=0 was doing full close; now validates properly
+- **pnl_pct** — was using total cost basis for partial closes; now uses remaining cost basis
+- **Portfolio** — fetches all positions in 1 API call instead of 3 sequential
+
+## [Phase 2.7] — 2026-04-11
+
+### Added
+- **Dynamic watchlist** — `lifecycle_status` (monitoring/considering/invested/paused/archived), `added_by` (yaml/user), `updated_at` on tickers table. UI: AddTickerForm + status badges.
+- **Signal user actions** — `user_action` field on signals (invest/skip/watch_pullback). SignalActionButtons component on every signal detail page.
+- **User actions audit trail** — `user_actions` table + store. Every action Fred takes is logged.
+- **Schema upgrade** — `_upgrade_schema()` in db.py handles ALTER TABLE for existing databases.
+- 6 new API endpoints: watchlist CRUD + signal actions + activity feed.
+
 ## [Phase 2.6] — 2026-04-10
 
 ### Added

@@ -239,6 +239,18 @@ serviceInstanceDeployV2(serviceId, environmentId, commitSha=git_rev_parse_HEAD()
 ### `railway redeploy` reuses cached image, doesn't pull new code
 **Root cause:** `railway redeploy --service X` re-runs the most recent deployment image. If you've pushed new code to GitHub but the service was deployed via `railway up` (local code upload), redeploy just re-runs the old image. **Fix:** always use `railway up --service X` to push fresh local code.
 
+### Sell endpoint crashed with NameError `sell_qty` (2026-04-11)
+**Root cause:** Copy-paste leftover. The sell route computed `actual_sold` from `close_position()` but the return dict referenced `sell_qty` (a local from the store function, never in scope). **Fix:** `sell_qty` → `actual_sold`. Caught by code review agent, not by tests (no sell test existed yet).
+
+### `plan_position()` called with positional args crashed invest action (2026-04-11)
+**Root cause:** `plan_position` uses keyword-only args (`def plan_position(*, entry_price, ...)`) but the invest action route called it with positional args. **Fix:** switch to `plan_position(entry_price=..., conviction_score=..., ...)`.
+
+### Triple PerplexityAdapter instantiation created 3 rate limiters (2026-04-11)
+**Root cause:** Pipeline's `_ingest_all()` created `PerplexityAdapter()` once for sector queries, then again for custom topics, then again for per-ticker research. Each instance had its own `RateLimiter(per_minute=60)`, so the actual rate was 3× the limit. **Fix:** reuse the single adapter instance from the adapters list.
+
+### Vercel env vars had trailing newline from `echo | vercel env add` (2026-04-10)
+**Root cause:** `echo "value" | vercel env add KEY production` appends `\n` to the value. `API_BASE_URL` became `"https://...app\n"` which failed silently. The frontend showed empty data on all pages. **Fix:** use `printf '%s' 'value' | vercel env add`.
+
 ### Initial fallback classifier returned `guidance_raise` for everything
 **Root cause:** Catalyst types had no explicit `patterns:` in `catalysts.yaml` so the matcher always scored 0 and fell through to the catch-all. **Fix:** the `_patterns_for_catalyst` helper now derives 2-grams from `display_name` automatically, so `"First Production Achieved"` matches `"first production"` in news headlines. See `src/fesi/intelligence/llm.py::_patterns_for_catalyst`.
 
@@ -250,7 +262,7 @@ serviceInstanceDeployV2(serviceId, environmentId, commitSha=git_rev_parse_HEAD()
 - **Max $2,000 per trade, max $10,000 deployed per month.** Position sizing scales conviction → size, capped at $2,000. Monthly cap is enforced by the circuit-breaker risk gate.
 - **UAE timezone (Asia/Dubai).** Scheduler runs at 15:00, 18:00, 22:00, 02:00, 08:00 UAE time. All timestamps stored as UTC in the DB; UAE-localized only for display.
 - **Personal use, single user.** No multi-tenancy, no user accounts, password gate is sufficient.
-- **Free or near-free data sources during calibration.** SEC EDGAR, FDA OpenFDA, ClinicalTrials.gov, RSS wires — all free. Perplexity sonar — ~$1/mo at 30 queries/day. Polygon ($29/mo) and Endpoints News ($18/mo) are budget-approved future adds.
+- **Free or near-free data sources.** SEC EDGAR, FDA OpenFDA, ClinicalTrials.gov, RSS wires — all free. Perplexity sonar — ~$1-3.50/mo (sectors + custom topics + per-ticker). Total Perplexity budget: under $5/mo. Max 8 custom topics enforced in API.
 - **Vercel hobby tier + Railway base plan.** Total infra cost target: under $20/mo before any data subscriptions.
 - **Python 3.12+ required.** SQLAlchemy 2.0, pydantic v2 features, and `from __future__ import annotations` patterns assume modern Python. macOS system Python (3.9) is too old — use `uv python install 3.12`.
 
@@ -281,6 +293,18 @@ Use `<StatRow label value tone />` for flex-layout label/value rows inside cards
 
 ### Test pattern
 `tmp_db` fixture creates a fresh SQLite DB per test, applies the schema via `init_db()`, loads the watchlist from `config/watchlist.yaml`. `db_conn` yields a SQLAlchemy connection. Use `monkeypatch.setenv("ANTHROPIC_API_KEY", "")` to force the deterministic classifier. See `tests/conftest.py`.
+
+### Position lifecycle
+Open a position with `open_position()`, close with `close_position(shares_to_sell=N)`. Partial closes update `shares_sold` and `realized_pnl_usd`; full closes set `status='closed'`. The pipeline auto-opens positions on engine buy decisions and updates unrealized P&L on every run. The sell endpoint in routes.py delegates validation to `close_position()` — don't duplicate the clamping logic.
+
+### Client-side mutations via Next.js API routes
+Client components (`"use client"`) call `fetch("/api/...")` which hits Next.js route handlers (e.g., `app/api/research/topics/route.ts`). Those handlers import from `lib/api.ts` which adds the Railway auth token server-side. Never call the Railway API directly from client components — always proxy through Next.js.
+
+### Perplexity prompt constants
+The JSON event schema is defined ONCE as `_EVENT_JSON_SCHEMA` + `_JSON_INSTRUCTIONS` at the top of `perplexity.py`. All three prompt builders (sector, custom topic, per-ticker) import these constants. Don't duplicate the schema instructions in new prompt methods.
+
+### run_label flows from scheduler to pipeline
+`scheduler.py` passes `run_label` (e.g., "morning_catchup") to `run_pipeline()` which passes it to `_ingest_all()`. Custom topics use it to decide which topics are due; per-ticker research only fires when `run_label == "morning_catchup"`. If you add a new run-type-gated feature, check `run_label` in `_ingest_all()`.
 
 ### Memory-driven context
 Long-term context lives in `~/.claude/projects/-Users-fred-FinanceEarlySignalsAndInvestor/memory/`. The `MEMORY.md` index is loaded into every conversation. Add new memory files when you make decisions worth preserving across sessions.

@@ -9,7 +9,7 @@
 | **Backend API** | https://shadowinvestor-api-production.up.railway.app |
 | **Repo** | https://github.com/fredd-b/shadowinvestor (public) |
 | **Mode** | `shadow` (no live broker contact) |
-| **Tests** | 40 passing |
+| **Tests** | 48 passing |
 
 ---
 
@@ -55,7 +55,8 @@ See [`docs/DECISION_FRAMEWORK.md`](docs/DECISION_FRAMEWORK.md) for the full miss
 | Scheduler | APScheduler | in-process cron, configured for `Asia/Dubai` |
 | HTTP client | httpx + tenacity | retries with exponential backoff |
 | LLM | Anthropic Claude (primary) | deterministic fallback when no key; Claude active in prod |
-| Discovery | Perplexity API (sonar) | LLM-grounded web search, 6 sector queries per run |
+| Discovery | Perplexity API (sonar) | 6 sector queries + custom topics + per-ticker daily research |
+| Technical Analysis | Pure Python (analysis/ta.py) | SMA(20/50/200), RSI(14), trend detection |
 | Market data | yfinance | use `Ticker.history()` not `download()` — see LEARNINGS |
 | CLI | click | `fesi` command tree |
 | Logging | structlog | JSON-friendly structured logs |
@@ -106,7 +107,10 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture and
 │   │   ├── decisions.py          #   shadow/paper/live decisions + sector exposure
 │   │   ├── digests.py            #   journal of every digest
 │   │   ├── prices.py             #   yfinance Ticker.history() cache
-│   │   └── outcomes.py           #   T+1 / T+5 / T+30 / T+90 returns + max draw
+│   │   ├── outcomes.py           #   T+1 / T+5 / T+30 / T+90 returns + max draw
+│   │   ├── positions.py          #   position lifecycle: open/close/P&L
+│   │   ├── research_topics.py    #   custom research topic CRUD
+│   │   └── user_actions.py       #   audit trail of every user action
 │   ├── ingest/
 │   │   ├── base.py               # IngestAdapter ABC + RawItem + content_hash
 │   │   ├── http.py               # shared httpx client w/ retry, rate-limit, SEC UA
@@ -114,7 +118,9 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture and
 │   │   ├── fda_openfda.py        # drug submissions
 │   │   ├── clinicaltrials.py     # CT.gov v2 (sponsor + China geo filters)
 │   │   ├── wires.py              # 5 RSS feeds, browser UA, keyword filter
-│   │   └── perplexity.py         # Perplexity web search, 6 sector queries/run
+│   │   └── perplexity.py         # Perplexity: sectors + custom topics + per-ticker
+│   ├── analysis/
+│   │   └── ta.py                 # SMA, RSI, trend — pure Python, no deps
 │   ├── intelligence/
 │   │   ├── llm.py                # Claude classifier+scorer + deterministic fallback
 │   │   ├── classifier.py         # public interface
@@ -281,8 +287,11 @@ Long-term context (architecture decisions, project history) also lives in `~/.cl
 | **1 — Signal pipeline + Shadow Portfolio** | ✅ done | Multi-source ingest, classifier, decision engine, digest, scheduler. First live run produced 5 shadow buys. |
 | **2 — Production deployment** | ✅ done | SQLAlchemy abstraction, FastAPI HTTP layer, Next.js 16 frontend, Docker, Railway + Vercel deployed. |
 | **2.5 — Code review + polish** | ✅ done | Triple-agent review pass, shared formatters/components, typed unions, fixed deploy bugs. |
-| **2.6 — Production hardening + Perplexity** | ✅ done | Postgres SAVEPOINT fixes, psycopg v3 dialect, Perplexity adapter (5th source), Claude classifier active in prod. 40 tests. |
-| **3 — ML calibration loop** | ⏳ planned | GBM scorer trained on accumulated shadow data; A/B against LLM-only scoring |
+| **2.6 — Production hardening + Perplexity** | ✅ done | Postgres SAVEPOINT fixes, psycopg v3 dialect, Perplexity adapter (5th source), Claude classifier active in prod. |
+| **2.7 — Interactive watchlist + signal actions** | ✅ done | Dynamic watchlist CRUD, invest/skip/watch actions, user_actions audit trail. |
+| **3.0 — Positions + P&L + Recommendations** | ✅ done | Invest opens positions, sell (partial/full), portfolio P&L, BUY/SKIP/WATCH banners on signals. |
+| **3.1 — Smart Research + TA** | ✅ done | Custom research topics (max 8), per-ticker daily research, SMA/RSI indicators. 48 tests. |
+| **4 — ML calibration loop** | ⏳ planned | GBM scorer trained on accumulated shadow data; A/B against LLM-only scoring |
 | **4 — Gated live execution via IBKR** | ⏳ gated | IBKR adapter, kill switch, manual approval for first 10 trades |
 
 ---

@@ -25,6 +25,24 @@ API_URL = "https://api.perplexity.ai/chat/completions"
 MODEL = "sonar"
 
 
+_EVENT_JSON_SCHEMA = (
+    '{"title": "concise event headline (under 200 chars)", '
+    '"ticker": "US ticker symbol or null", '
+    '"exchange": "NASDAQ/NYSE/AMEX/HKEX or null", '
+    '"company_name": "full company name", '
+    '"catalyst_type": "brief label (e.g. FDA approval, Phase 3 positive)", '
+    '"summary": "2-3 sentence summary with key economics if available", '
+    '"date": "YYYY-MM-DD if known, else null", '
+    '"url": "most authoritative source URL if known, else null"}'
+)
+
+_JSON_INSTRUCTIONS = (
+    f"Return ONLY a JSON array of event objects. Each event:\n{_EVENT_JSON_SCHEMA}\n\n"
+    "If no relevant events found, return an empty array: []\n"
+    "Do NOT invent events. Only report events with real sources."
+)
+
+
 class PerplexityAdapter(IngestAdapter):
     """Fetch catalyst events via Perplexity's grounded web search API."""
 
@@ -81,13 +99,7 @@ class PerplexityAdapter(IngestAdapter):
             prompt = (
                 f"You are a financial research assistant. Search for the latest news "
                 f"(last 24 hours) about: {query}\n\n"
-                f"Return ONLY a JSON array of event objects. Each event:\n"
-                f'{{"title": "concise headline", "ticker": "symbol or null", '
-                f'"exchange": "NASDAQ/NYSE/etc or null", "company_name": "name", '
-                f'"catalyst_type": "brief label", "summary": "2-3 sentences", '
-                f'"date": "YYYY-MM-DD or null", "url": "source URL or null"}}\n\n'
-                f"If no relevant events, return an empty array: []\n"
-                f"Do NOT invent events. Only report events with real sources."
+                f"{_JSON_INSTRUCTIONS}"
             )
             try:
                 self.rate_limiter.wait()
@@ -117,13 +129,7 @@ class PerplexityAdapter(IngestAdapter):
                 f"Look for: earnings, FDA decisions, clinical trials, contracts, "
                 f"management changes, analyst ratings, partnerships, regulatory filings, "
                 f"or any price-moving news.\n\n"
-                f"Return ONLY a JSON array of event objects. Each event:\n"
-                f'{{"title": "concise headline", "ticker": "{sym}", '
-                f'"exchange": "{t.get("exchange", "NASDAQ")}", "company_name": "{name}", '
-                f'"catalyst_type": "brief label", "summary": "2-3 sentences", '
-                f'"date": "YYYY-MM-DD or null", "url": "source URL or null"}}\n\n'
-                f"If no relevant events, return an empty array: []\n"
-                f"Do NOT invent events."
+                f"{_JSON_INSTRUCTIONS}"
             )
             try:
                 self.rate_limiter.wait()
@@ -188,20 +194,7 @@ Companies on our watchlist (report any news about these):
 
 Also report events for any OTHER companies in this sector, even if not on the watchlist above.
 
-Return ONLY a JSON array of event objects. Each event:
-{{
-  "title": "concise event headline (under 200 chars)",
-  "ticker": "US ticker symbol if identifiable, else null",
-  "exchange": "NASDAQ/NYSE/AMEX/HKEX or null",
-  "company_name": "full company name",
-  "catalyst_type": "brief label (e.g. 'FDA approval', 'Phase 3 positive', 'offtake signed')",
-  "summary": "2-3 sentence summary with key economics if available",
-  "date": "YYYY-MM-DD if known, else null",
-  "url": "most authoritative source URL if known, else null"
-}}
-
-If no relevant events found in the last 6 hours, return an empty array: []
-Do NOT invent events. Only report events with real sources."""
+{_JSON_INSTRUCTIONS}"""
 
     # ------------------------------------------------------------------
     # API call

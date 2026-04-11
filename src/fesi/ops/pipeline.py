@@ -217,12 +217,13 @@ def _ingest_all(
         wires,
     )
 
+    pplx_adapter = perplexity.PerplexityAdapter()
     adapters = [
         sec_edgar.SecEdgarAdapter(),
         fda_openfda.FdaOpenfdaAdapter(),
         clinicaltrials.ClinicalTrialsAdapter(),
         wires.WiresAdapter(),
-        perplexity.PerplexityAdapter(),
+        pplx_adapter,
     ]
     if only_sources:
         adapters = [a for a in adapters if a.source_key in only_sources]
@@ -240,13 +241,12 @@ def _ingest_all(
     # ---- Custom research topics (Perplexity) ----
     if not only_sources or "perplexity_api" in (only_sources or []):
         try:
-            pplx = perplexity.PerplexityAdapter()
-            if pplx.enabled:
+            if pplx_adapter.enabled:
                 from fesi.store.research_topics import get_topics_due_for_run, mark_topic_run
                 with connect() as conn:
                     topics = get_topics_due_for_run(conn, run_label=run_label or "")
                 if topics:
-                    topic_items = pplx.fetch_custom_topics(topics)
+                    topic_items = pplx_adapter.fetch_custom_topics(topics)
                     all_items.extend(topic_items)
                     with connect() as conn:
                         for t in topics:
@@ -260,13 +260,12 @@ def _ingest_all(
     # ---- Per-ticker daily research (morning_catchup only) ----
     if run_label == "morning_catchup" and (not only_sources or "perplexity_api" in (only_sources or [])):
         try:
-            pplx = perplexity.PerplexityAdapter()
-            if pplx.enabled:
+            if pplx_adapter.enabled:
                 from fesi.store.tickers import list_tickers_for_daily_research
                 with connect() as conn:
                     research_tickers = list_tickers_for_daily_research(conn)
                 if research_tickers:
-                    ticker_items = pplx.fetch_ticker_research(research_tickers)
+                    ticker_items = pplx_adapter.fetch_ticker_research(research_tickers)
                     all_items.extend(ticker_items)
                     log.info("ticker_research_done", tickers=len(research_tickers), items=len(ticker_items))
         except Exception as e:

@@ -727,7 +727,7 @@ def sell_position(position_id: int, body: schemas.SellPositionIn) -> dict:
         "position_id": position_id,
         "status": updated["status"],
         "realized_pnl": updated["realized_pnl_usd"],
-        "shares_sold": sell_qty,
+        "shares_sold": actual_sold,
         "exit_price": exit_price,
     }
 

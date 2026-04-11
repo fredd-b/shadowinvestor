@@ -69,6 +69,72 @@ class PerplexityAdapter(IngestAdapter):
         log.info("perplexity_fetch_done", items=len(items), queries=len(queries))
         return items
 
+    def fetch_custom_topics(self, topics: list[dict]) -> list[RawItem]:
+        """Run Perplexity queries for user-created research topics."""
+        if not self.enabled or not topics:
+            return []
+        items: list[RawItem] = []
+        for topic in topics:
+            tid = topic["id"]
+            query = topic["query_template"]
+            sector = topic.get("sector_hint") or "custom_research"
+            prompt = (
+                f"You are a financial research assistant. Search for the latest news "
+                f"(last 24 hours) about: {query}\n\n"
+                f"Return ONLY a JSON array of event objects. Each event:\n"
+                f'{{"title": "concise headline", "ticker": "symbol or null", '
+                f'"exchange": "NASDAQ/NYSE/etc or null", "company_name": "name", '
+                f'"catalyst_type": "brief label", "summary": "2-3 sentences", '
+                f'"date": "YYYY-MM-DD or null", "url": "source URL or null"}}\n\n'
+                f"If no relevant events, return an empty array: []\n"
+                f"Do NOT invent events. Only report events with real sources."
+            )
+            try:
+                self.rate_limiter.wait()
+                response = self._call_api(prompt)
+                parsed = self._parse_response(f"topic_{tid}", response)
+                items.extend(parsed)
+                log.info("custom_topic_done", topic_id=tid, items=len(parsed))
+            except Exception as e:
+                log.warning("custom_topic_failed", topic_id=tid, error=str(e))
+        return items
+
+    def fetch_ticker_research(self, tickers: list[dict]) -> list[RawItem]:
+        """Run Perplexity queries for individual watchlist tickers."""
+        if not self.enabled or not tickers:
+            return []
+        items: list[RawItem] = []
+        for t in tickers:
+            sym = t["symbol"]
+            name = t.get("name", sym)
+            thesis = t.get("watchlist_thesis") or ""
+            sector = t.get("sector") or "unknown"
+            prompt = (
+                f"You are a financial research assistant. Search for the latest news "
+                f"and developments (last 24 hours) about {name} ({sym}).\n\n"
+                f"Company context: {thesis[:300]}\n"
+                f"Sector: {sector}\n\n"
+                f"Look for: earnings, FDA decisions, clinical trials, contracts, "
+                f"management changes, analyst ratings, partnerships, regulatory filings, "
+                f"or any price-moving news.\n\n"
+                f"Return ONLY a JSON array of event objects. Each event:\n"
+                f'{{"title": "concise headline", "ticker": "{sym}", '
+                f'"exchange": "{t.get("exchange", "NASDAQ")}", "company_name": "{name}", '
+                f'"catalyst_type": "brief label", "summary": "2-3 sentences", '
+                f'"date": "YYYY-MM-DD or null", "url": "source URL or null"}}\n\n'
+                f"If no relevant events, return an empty array: []\n"
+                f"Do NOT invent events."
+            )
+            try:
+                self.rate_limiter.wait()
+                response = self._call_api(prompt)
+                parsed = self._parse_response(f"ticker_{sym}", response)
+                items.extend(parsed)
+                log.info("ticker_research_done", symbol=sym, items=len(parsed))
+            except Exception as e:
+                log.warning("ticker_research_failed", symbol=sym, error=str(e))
+        return items
+
     # ------------------------------------------------------------------
     # Query generation
     # ------------------------------------------------------------------

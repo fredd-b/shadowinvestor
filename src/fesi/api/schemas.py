@@ -168,6 +168,42 @@ class ResearchRunOut(BaseModel):
     items_skipped: int
 
 
+class TickerIndicatorsOut(BaseModel):
+    symbol: str
+    data_points: int = 0
+    entry_price: float | None = None
+    price_vs_entry_pct: float | None = None
+    latest: dict | None = None  # {date, close, sma_20, sma_50, sma_200, rsi_14, trend}
+
+
+class ResearchTopicOut(BaseModel):
+    id: int
+    name: str
+    query_template: str
+    sector_hint: str | None = None
+    schedule: str
+    is_active: int
+    created_at: str
+    updated_at: str | None = None
+    last_run_at: str | None = None
+    total_items_found: int = 0
+
+
+class CreateResearchTopicIn(BaseModel):
+    name: str
+    query_template: str
+    sector_hint: str | None = None
+    schedule: str = "daily"
+
+
+class UpdateResearchTopicIn(BaseModel):
+    name: str | None = None
+    query_template: str | None = None
+    sector_hint: str | None = None
+    schedule: str | None = None
+    is_active: int | None = None
+
+
 class AddTickerIn(BaseModel):
     symbol: str
     exchange: str

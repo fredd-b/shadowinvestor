@@ -65,14 +65,15 @@ def run_pipeline(
     scan_window_hours: int = 48,
     silent_alerts: bool = False,
     only_sources: list[str] | None = None,
+    run_label: str | None = None,
 ) -> PipelineRunStats:
     """Run one full pipeline cycle. Called by the scheduler or `fesi run-pipeline`."""
-    log.info("pipeline_start", scan_window_hours=scan_window_hours)
+    log.info("pipeline_start", scan_window_hours=scan_window_hours, run_label=run_label)
     stats = PipelineRunStats(started_at=datetime.now(timezone.utc))
     since = stats.started_at - timedelta(hours=scan_window_hours)
 
     # ---- Phase A: Ingest from all active sources ----
-    all_items = _ingest_all(only_sources=only_sources, stats=stats)
+    all_items = _ingest_all(only_sources=only_sources, stats=stats, run_label=run_label)
     stats.raw_items_fetched = len(all_items)
 
     # ---- DB-bound work ----
@@ -204,7 +205,8 @@ def run_pipeline(
 # ============================================================================
 
 def _ingest_all(
-    *, only_sources: list[str] | None, stats: PipelineRunStats
+    *, only_sources: list[str] | None, stats: PipelineRunStats,
+    run_label: str | None = None,
 ) -> list:
     """Fetch from every active adapter, isolated by try/except."""
     from fesi.ingest import (
@@ -234,6 +236,43 @@ def _ingest_all(
         except Exception as e:
             log.exception("ingest_failed", source=adapter.source_key, error=str(e))
             stats.errors.append(f"{adapter.source_key}: {e}")
+
+    # ---- Custom research topics (Perplexity) ----
+    if not only_sources or "perplexity_api" in (only_sources or []):
+        try:
+            pplx = perplexity.PerplexityAdapter()
+            if pplx.enabled:
+                from fesi.store.research_topics import get_topics_due_for_run, mark_topic_run
+                with connect() as conn:
+                    topics = get_topics_due_for_run(conn, run_label=run_label or "")
+                if topics:
+                    topic_items = pplx.fetch_custom_topics(topics)
+                    all_items.extend(topic_items)
+                    with connect() as conn:
+                        for t in topics:
+                            count = sum(1 for i in topic_items if f"topic_{t['id']}" in i.source_id)
+                            mark_topic_run(conn, t["id"], count)
+                    log.info("custom_topics_done", topics=len(topics), items=len(topic_items))
+        except Exception as e:
+            log.exception("custom_topics_failed", error=str(e))
+            stats.errors.append(f"custom_topics: {e}")
+
+    # ---- Per-ticker daily research (morning_catchup only) ----
+    if run_label == "morning_catchup" and (not only_sources or "perplexity_api" in (only_sources or [])):
+        try:
+            pplx = perplexity.PerplexityAdapter()
+            if pplx.enabled:
+                from fesi.store.tickers import list_tickers_for_daily_research
+                with connect() as conn:
+                    research_tickers = list_tickers_for_daily_research(conn)
+                if research_tickers:
+                    ticker_items = pplx.fetch_ticker_research(research_tickers)
+                    all_items.extend(ticker_items)
+                    log.info("ticker_research_done", tickers=len(research_tickers), items=len(ticker_items))
+        except Exception as e:
+            log.exception("ticker_research_failed", error=str(e))
+            stats.errors.append(f"ticker_research: {e}")
+
     return all_items
 
 

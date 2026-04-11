@@ -294,6 +294,27 @@ user_actions = Table(
 )
 
 # ============================================================================
+# research_topics: user-created research queries.
+# ============================================================================
+research_topics = Table(
+    "research_topics",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("name", Text, nullable=False),
+    Column("query_template", Text, nullable=False),
+    Column("sector_hint", Text),
+    Column("schedule", Text, nullable=False, default="daily"),
+    Column("is_active", Integer, nullable=False, default=1),
+    Column("created_at", Text, nullable=False),
+    Column("updated_at", Text),
+    Column("last_run_at", Text),
+    Column("total_items_found", Integer, nullable=False, default=0),
+    UniqueConstraint("name", name="uq_research_topics_name"),
+    CheckConstraint("schedule IN ('daily','every_run')", name="ck_research_topics_schedule"),
+    Index("idx_research_topics_active", "is_active"),
+)
+
+# ============================================================================
 # positions: tracks open/closed positions with P&L.
 # ============================================================================
 positions = Table(

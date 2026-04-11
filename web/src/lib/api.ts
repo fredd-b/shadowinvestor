@@ -15,6 +15,7 @@ import type {
   ResearchSector,
   ResearchRun,
   Position,
+  TickerIndicators,
 } from "./types";
 
 const API_BASE = process.env.API_BASE_URL || "http://localhost:8765";
@@ -183,6 +184,10 @@ export async function sellPosition(positionId: number, shares?: number, note?: s
     method: "POST",
     body: JSON.stringify({ shares, note }),
   });
+}
+
+export async function getTickerIndicators(symbol: string): Promise<TickerIndicators> {
+  return apiFetch<TickerIndicators>(`/api/tickers/${encodeURIComponent(symbol)}/indicators`);
 }
 
 export async function getDiscoveries(): Promise<Record<string, unknown>[]> {

@@ -171,6 +171,22 @@ export type ResearchRun = {
   items_skipped: number;
 };
 
+export type TickerIndicators = {
+  symbol: string;
+  data_points: number;
+  entry_price: number | null;
+  price_vs_entry_pct: number | null;
+  latest: {
+    date: string;
+    close: number;
+    sma_20: number | null;
+    sma_50: number | null;
+    sma_200: number | null;
+    rsi_14: number | null;
+    trend: string | null;
+  } | null;
+};
+
 export type Position = {
   id: number;
   ticker_id: number;

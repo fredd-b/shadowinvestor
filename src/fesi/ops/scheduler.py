@@ -44,7 +44,7 @@ SCAN_SCHEDULE: list[tuple[int, int, bool, str]] = [
 def _scan_job(silent: bool, label: str):
     log.info("scheduled_scan_start", label=label, silent=silent)
     try:
-        stats = run_pipeline(silent_alerts=silent)
+        stats = run_pipeline(silent_alerts=silent, run_label=label)
         log.info(
             "scheduled_scan_done",
             label=label,

@@ -210,6 +210,39 @@ def _ticker_dict(row: dict) -> dict:
     return {k: row.get(k) for k in keys}
 
 
+@router.get("/tickers/{symbol}/indicators", response_model=schemas.TickerIndicatorsOut)
+def get_ticker_indicators(symbol: str) -> schemas.TickerIndicatorsOut:
+    """Technical analysis indicators for a ticker."""
+    from fesi.analysis.ta import compute_indicators
+    from fesi.store.positions import get_open_position_for_ticker
+    from fesi.store.prices import get_price_history
+
+    with connect() as conn:
+        ticker = get_ticker_by_symbol(conn, symbol)
+        if ticker is None:
+            raise HTTPException(status_code=404, detail="ticker not found")
+
+        prices = get_price_history(conn, ticker["id"])
+        indicators = compute_indicators(prices)
+
+        entry_price = None
+        price_vs_entry_pct = None
+        pos = get_open_position_for_ticker(conn, ticker["id"], get_settings().mode)
+        if pos and indicators.get("latest"):
+            entry_price = pos["entry_price"]
+            current = indicators["latest"]["close"]
+            if entry_price and entry_price > 0:
+                price_vs_entry_pct = round((current - entry_price) / entry_price * 100, 2)
+
+    return schemas.TickerIndicatorsOut(
+        symbol=symbol,
+        data_points=indicators.get("data_points", 0),
+        entry_price=entry_price,
+        price_vs_entry_pct=price_vs_entry_pct,
+        latest=indicators.get("latest"),
+    )
+
+
 # ============================================================================
 # Portfolio
 # ============================================================================
@@ -378,6 +411,82 @@ def run_research(
         items_inserted=result["inserted"],
         items_skipped=result["skipped"],
     )
+
+
+# ============================================================================
+# Research topics CRUD
+# ============================================================================
+@router.get("/research/topics", response_model=list[schemas.ResearchTopicOut])
+def list_research_topics() -> list[schemas.ResearchTopicOut]:
+    from fesi.store.research_topics import list_all_topics
+    with connect() as conn:
+        rows = list_all_topics(conn)
+    return [schemas.ResearchTopicOut(**r) for r in rows]
+
+
+@router.post("/research/topics", response_model=schemas.ResearchTopicOut)
+def create_research_topic(body: schemas.CreateResearchTopicIn) -> schemas.ResearchTopicOut:
+    from fesi.store.research_topics import create_topic, get_topic_by_id
+    with connect() as conn:
+        tid = create_topic(
+            conn, name=body.name, query_template=body.query_template,
+            sector_hint=body.sector_hint, schedule=body.schedule,
+        )
+        topic = get_topic_by_id(conn, tid)
+    return schemas.ResearchTopicOut(**topic)
+
+
+@router.patch("/research/topics/{topic_id}")
+def update_research_topic(topic_id: int, body: schemas.UpdateResearchTopicIn) -> dict:
+    from fesi.store.research_topics import update_topic, get_topic_by_id
+    with connect() as conn:
+        existing = get_topic_by_id(conn, topic_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Topic not found")
+        updates = body.model_dump(exclude_none=True)
+        if updates:
+            update_topic(conn, topic_id, **updates)
+    return {"ok": True, "topic_id": topic_id}
+
+
+@router.delete("/research/topics/{topic_id}")
+def delete_research_topic(topic_id: int) -> dict:
+    from fesi.store.research_topics import delete_topic, get_topic_by_id
+    with connect() as conn:
+        existing = get_topic_by_id(conn, topic_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Topic not found")
+        delete_topic(conn, topic_id)
+    return {"ok": True, "topic_id": topic_id}
+
+
+@router.post("/research/topics/{topic_id}/run")
+def run_research_topic(topic_id: int) -> dict:
+    """Manually run a single custom research topic."""
+    from fesi.ingest.perplexity import PerplexityAdapter
+    from fesi.store.raw_items import insert_raw_items
+    from fesi.store.research_topics import get_topic_by_id, mark_topic_run
+
+    with connect() as conn:
+        topic = get_topic_by_id(conn, topic_id)
+        if not topic:
+            raise HTTPException(status_code=404, detail="Topic not found")
+
+    adapter = PerplexityAdapter()
+    if not adapter.enabled:
+        raise HTTPException(status_code=400, detail="PERPLEXITY_API_KEY not set")
+
+    items = adapter.fetch_custom_topics([topic])
+    with connect() as conn:
+        result = insert_raw_items(conn, items)
+        mark_topic_run(conn, topic_id, len(items))
+
+    return {
+        "topic_id": topic_id,
+        "items_fetched": len(items),
+        "items_inserted": result["inserted"],
+        "items_skipped": result["skipped"],
+    }
 
 
 # ============================================================================

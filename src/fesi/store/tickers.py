@@ -247,3 +247,16 @@ def remove_ticker_from_watchlist(conn: Connection, ticker_id: int) -> None:
         """),
         {"now": now, "id": ticker_id},
     )
+
+
+def list_tickers_for_daily_research(conn: Connection) -> list[dict]:
+    """Tickers with lifecycle 'invested' or 'considering' — get daily Perplexity queries."""
+    rows = conn.execute(
+        text("""
+            SELECT * FROM tickers
+            WHERE is_watchlist = 1
+            AND lifecycle_status IN ('invested', 'considering')
+            ORDER BY symbol
+        """)
+    ).mappings().all()
+    return [dict(r) for r in rows]

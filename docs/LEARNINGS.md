@@ -306,5 +306,22 @@ The JSON event schema is defined ONCE as `_EVENT_JSON_SCHEMA` + `_JSON_INSTRUCTI
 ### run_label flows from scheduler to pipeline
 `scheduler.py` passes `run_label` (e.g., "morning_catchup") to `run_pipeline()` which passes it to `_ingest_all()`. Custom topics use it to decide which topics are due; per-ticker research only fires when `run_label == "morning_catchup"`. If you add a new run-type-gated feature, check `run_label` in `_ingest_all()`.
 
+### Recommendation mapping from decision engine output
+The signal detail page shows BUY/CONSIDER/WATCH/SKIP banners. The mapping is:
+- **BUY** (green): decision action = "buy" AND conviction ≥ 15
+- **CONSIDER** (yellow): decision action = "buy" AND conviction < 15
+- **WATCH** (blue): decision action = "no_buy" AND rule_triggered contains "conviction" (failed on low score, not a risk gate)
+- **SKIP** (gray): decision action = "no_buy" with risk gate failure
+This logic is in `routes.py` inside the `get_signal_detail` handler. Don't duplicate it in the frontend.
+
+### Custom research topics max 8 enforced in API
+The `create_topic()` function in `store/research_topics.py` counts active topics and raises if ≥ `MAX_ACTIVE_TOPICS` (8). This keeps Perplexity costs under $2/month. The limit is checked server-side, not just in the UI. Don't increase without recalculating cost impact.
+
+### `plan_position()` is keyword-only
+`decision/sizing.py::plan_position` uses `*` to force keyword-only args: `def plan_position(*, entry_price, conviction_score, ...)`. Calling with positional args crashes. We burned time on this when wiring the invest action in `routes.py`.
+
+### `_upgrade_schema()` for ALTERing existing tables
+`db.py::_upgrade_schema()` uses `inspector.get_columns()` to check if a column exists before `ALTER TABLE ADD COLUMN`. This handles upgrading existing databases when new columns are added (e.g., `lifecycle_status` on tickers, `user_action` on signals). New columns added to the schema should also be added here for backward compatibility.
+
 ### Memory-driven context
 Long-term context lives in `~/.claude/projects/-Users-fred-FinanceEarlySignalsAndInvestor/memory/`. The `MEMORY.md` index is loaded into every conversation. Add new memory files when you make decisions worth preserving across sessions.

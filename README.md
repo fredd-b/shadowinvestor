@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Status** | Phase 2 deployed — backend + frontend live in production |
+| **Status** | Phase 3.1 deployed — positions + P&L + TA + custom research + 48 tests |
 | **Frontend** | https://shadowinvestor.vercel.app |
 | **Backend API** | https://shadowinvestor-api-production.up.railway.app |
 | **Repo** | https://github.com/fredd-b/shadowinvestor (public) |
@@ -100,7 +100,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture and
 │   ├── db.py                     # SQLAlchemy engine + connect() + init_db()
 │   ├── logging.py                # structlog setup
 │   ├── store/
-│   │   ├── schema.py             # ⭐ single source of truth for all 11 tables
+│   │   ├── schema.py             # ⭐ single source of truth for all 14 tables
 │   │   ├── tickers.py            #   watchlist loader, symbol/alias resolver
 │   │   ├── raw_items.py          #   insert + dedup + unprocessed query
 │   │   ├── signals.py            #   insert with full feature vector
@@ -108,9 +108,9 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture and
 │   │   ├── digests.py            #   journal of every digest
 │   │   ├── prices.py             #   yfinance Ticker.history() cache
 │   │   ├── outcomes.py           #   T+1 / T+5 / T+30 / T+90 returns + max draw
-│   │   ├── positions.py          #   position lifecycle: open/close/P&L
-│   │   ├── research_topics.py    #   custom research topic CRUD
-│   │   └── user_actions.py       #   audit trail of every user action
+│   │   ├── positions.py          #   position lifecycle: open/partial close/full close/P&L
+│   │   ├── research_topics.py    #   custom research topic CRUD (max 8 active)
+│   │   └── user_actions.py       #   append-only audit trail of every user action
 │   ├── ingest/
 │   │   ├── base.py               # IngestAdapter ABC + RawItem + content_hash
 │   │   ├── http.py               # shared httpx client w/ retry, rate-limit, SEC UA
@@ -142,7 +142,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture and
 │   │   └── dashboard.py          # local Streamlit dashboard (legacy)
 │   ├── api/
 │   │   ├── main.py               # FastAPI app, CORS, bearer auth
-│   │   ├── routes.py             # 17 routes
+│   │   ├── routes.py             # 31 routes
 │   │   └── schemas.py            # Pydantic response models (mirror web/src/lib/types.ts)
 │   └── ml/                       # Phase 3 placeholder
 ├── tests/
@@ -154,7 +154,8 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture and
 │   ├── test_decision_engine.py   # buy/no_buy + sizing + gates (7 tests)
 │   ├── test_digest_render.py     # markdown rendering (4 tests)
 │   ├── test_pipeline_e2e.py      # synthetic raw_items → digest (2 tests)
-│   └── test_perplexity_adapter.py  # Perplexity adapter (8 tests)
+│   ├── test_perplexity_adapter.py  # Perplexity adapter (7 tests)
+│   └── test_ta.py                 # Technical analysis SMA/RSI (8 tests)
 ├── web/                          # Next.js 16 frontend (deployed to Vercel)
 │   ├── src/proxy.ts              # password gate (Next 16: was middleware.ts)
 │   ├── src/lib/api.ts            # typed API client → Railway
@@ -162,9 +163,12 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture and
 │   ├── src/lib/format.ts         # shared display formatters
 │   ├── src/components/Nav.tsx
 │   ├── src/components/StatRow.tsx     # StatRow + StatTile
-│   └── src/app/                  # 10 pages (signals, portfolio, tickers, sources,
-│                                 #           digests, framework, admin, signal/[id],
-│                                 #           ticker/[symbol], login)
+│   ├── src/components/SignalActionButtons.tsx  # invest/skip/watch
+│   ├── src/components/SellButton.tsx          # sell full/partial
+│   ├── src/components/AddTickerForm.tsx       # add ticker to watchlist
+│   └── src/app/                  # 12 pages (signals, portfolio, tickers, sources,
+│                                 #           digests, framework, admin, research,
+│                                 #           signal/[id], ticker/[symbol], digest/[id], login)
 ├── Dockerfile                    # multi-arch Python 3.12 slim, exec-form CMD
 ├── railway.toml                  # Railway build config (NO startCommand — see LEARNINGS)
 ├── pyproject.toml

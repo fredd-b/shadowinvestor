@@ -270,6 +270,7 @@ See [`docs/DECISION_FRAMEWORK.md`](docs/DECISION_FRAMEWORK.md) for the full fram
 
 | File | Purpose |
 |---|---|
+| [`CLAUDE.md`](CLAUDE.md) | Project rules, patterns, and critical context (auto-loaded by Claude Code) |
 | [`README.md`](README.md) | This file — overview, setup, layout |
 | [`CHANGELOG.md`](CHANGELOG.md) | Per-phase history of changes |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Full architecture diagram, service responsibilities, data flow, schema |
@@ -302,6 +303,7 @@ Long-term context (architecture decisions, project history) also lives in `~/.cl
 
 ## Critical reads before contributing
 
-1. **[`docs/LEARNINGS.md`](docs/LEARNINGS.md)** — every entry represents at least an hour someone burned figuring something out. Don't repeat the mistakes.
-2. **`web/AGENTS.md`** — Next.js 16 has breaking changes from your training data. Specifically: `middleware.ts` → `proxy.ts`, `params`/`searchParams` are Promises.
-3. **`config/risk.yaml`** — these are hard constraints, not suggestions.
+1. **[`CLAUDE.md`](CLAUDE.md)** — project rules and patterns (auto-loaded by Claude Code). Start here.
+2. **[`docs/LEARNINGS.md`](docs/LEARNINGS.md)** — every entry represents at least an hour someone burned figuring something out. Don't repeat the mistakes.
+3. **`web/AGENTS.md`** — Next.js 16 has breaking changes from your training data. Specifically: `middleware.ts` → `proxy.ts`, `params`/`searchParams` are Promises.
+4. **`config/risk.yaml`** — these are hard constraints, not suggestions.

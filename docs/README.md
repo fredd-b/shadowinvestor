@@ -2,6 +2,7 @@
 
 Read order if you're new to ShadowInvestor:
 
+0. **[../CLAUDE.md](../CLAUDE.md)** — project rules, patterns, and critical context (auto-loaded by Claude Code)
 1. **[../README.md](../README.md)** — overview, mission, layout, setup
 2. **[LEARNINGS.md](LEARNINGS.md)** ⭐ — institutional memory: do's, don'ts, gotchas, decisions, what broke. **Read this before changing anything load-bearing.**
 3. **[ARCHITECTURE.md](ARCHITECTURE.md)** — full system diagram, service responsibilities, data flow, schema
@@ -30,6 +31,7 @@ Read order if you're new to ShadowInvestor:
 
 ## See also
 
+- [`../CLAUDE.md`](../CLAUDE.md) — project rules for Claude Code (auto-loaded every session)
 - [`../CHANGELOG.md`](../CHANGELOG.md) — history of changes
 - [`../PHASE_1_BUILD.md`](../PHASE_1_BUILD.md) — Phase 1 ticket plan (now shipped)
 - [`~/.claude/projects/-Users-fred-FinanceEarlySignalsAndInvestor/memory/`](file:///Users/fred/.claude/projects/-Users-fred-FinanceEarlySignalsAndInvestor/memory/) — long-term context across Claude sessions
